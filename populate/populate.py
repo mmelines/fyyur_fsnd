@@ -480,3 +480,202 @@ class RdDb:
         minutes = random.choice([0, 15, 30])
         end_date = start_date + datetime.timedelta(hours=hours, minutes=minutes)
         return (start_date, end_date)
+
+class ThinData:
+
+    def __init__(self):
+        """
+        init instance of RdDb item
+        """
+        self.artist_ids = Select().get_entity_ids("artist")
+        self.venue_ids = Select().get_entity_ids("venue")
+        self.show_ids = Select().get_entity_ids("show")
+        self.genres = Select().get_genres()
+        self.genre_ids = Select().get_entity_ids("genre")
+        self.locations = {}
+        self.log_global = 0
+        self.new_singleton()
+        logging.info("completed RdDb __init__")
+
+    def new_singleton(self):
+        """
+        get all venue and artist ids by location and add them to both:
+            - self.locations[location]["venue_ids"] and
+                self.locations[location]["artist_ids"]
+                (contains only ids for location)
+            - self.artist_ids and self.venue_ids (contains all ids)
+        """
+        def log_singleton(function, *args):
+            """
+            logging functions for RdDb.new_singleton
+            """
+            if function == "call":
+                msg = "called RdDb.new_singleton()"
+                logging.info(msg)
+            if function == "summarize" and len(args) == 3:
+                data_function = "self.venue_ids is " + str(args[1])
+                data_function += "\n  & self.artist_ids is " + str(args[2])
+                logging.debug(data_function)
+                msg = "Rd.Db.new_singleton completed"
+                logging.info(msg)
+
+        log_singleton("call")
+        self.model = {}
+        self.artists = []
+        self.venues = []
+        self.shows = []
+        self.genres = []
+        for location in RdDb.location_names:
+            obj = {"venues": {},
+                    "venue_ids": [],
+                    "artists": {},
+                    "artist_ids": [],
+                    "shows": []}
+            ids = Select().loc_search(location)
+            # add venue info to each location
+            for item in ids[0]:
+                # add item to list of location venue_ids
+                obj["venue_ids"].append(item)
+                self.venues.append(item)
+                # add blank scheduling item to list of location venue_ids
+                obj["venues"][item] = {"shows": {}}
+                # get show details for every venue in the specified area
+                venue_shows = Select().get_venue_shows(item)
+                # if the query returns a result, add: 
+                #  - a show id to self.venue_shows
+                if not venue_shows is None:
+                    # add show_ids to obj["shows"] if it's not there already
+                    for show_id in venue_shows:
+                        # add start date listing as the key
+                        # obj["venues"][item][]
+                        if not show_id in obj["shows"]:
+                            obj["shows"].append(show_id)
+                        if not show_id in self.shows:
+                            self.shows.append(show_id)
+            # add artist info to each location !!TODO
+            for item in ids[1]:
+                obj["artist_ids"].append(item)
+                if not item in self.artists:
+                    self.artists.append(item)
+                obj["artists"][item] = {"shows": {}}
+                artist_shows = Select().get_artist_shows(item)
+                if not artist_shows is None:
+                    # add show_ids to obj["shows"] if it's not there already
+                    #    continues 
+                    for show_id in artist_shows:
+                        if not show_id in obj["shows"]:
+                            obj["shows"].append(show_id)
+                        if not show_id in self.shows:
+                            self.shows.append(show_id)
+            for item in obj["shows"]:
+                dtl = Select().get_show_detail(item)
+                if not dtl == []:
+                    # if show_id isn't already in the location show obj, add:
+                    #   - the show id to to obj[<entity_type>s][<id>][show_ids]
+                    #   - the detailed scheduling object to blank space created
+                    #       in obj[<entity_type>s][<id>] with key [start_time]
+                    show_obj = {"venue_id": dtl[0],
+                            "artist_id": dtl[1],
+                            "start_time": dtl[2],
+                            "end_time": dtl[3],
+                            "show_id": item}
+                    same_day = True
+                    if dtl[3].day != dtl[2].day:
+                        same_day = False
+                        second_start = datetime.datetime(dtl[3].year,
+                                                            dtl[3].month,
+                                                            dtl[3].day,
+                                                            1, 0, 0)
+                    if not item in obj["artists"][dtl[1]]["shows"].keys():
+                        obj["artists"][dtl[1]]["shows"][item] = dtl[2]
+                        obj["artists"][dtl[1]]["shows"][dtl[2]] = show_obj
+                        if not same_day:
+                            obj["artists"][dtl[1]][second_start] = show_obj
+                    if not item in obj["venues"][dtl[0]]["shows"].keys():
+                        obj["venues"][dtl[0]]["shows"][item] = dtl[2]
+                        obj["venues"][dtl[0]]["shows"][dtl[2]] = show_obj
+                        if not same_day:
+                            obj["venues"][dtl[0]][second_start] = show_obj
+            self.model[location] = obj
+        self.model["artists"] = self.artists
+        self.model["venues"] = self.venues
+        self.model["shows"] = self.shows
+        self.model["genres"] = {}
+        log_singleton("summarize", self.venue_ids, self.artist_ids)
+        return self.model
+
+    def __repr__(self):
+        """
+        represent data in RdDb class instance
+        """
+        msg = "\n" + "-" * 30 + "\n" + str(pprint(self.model))
+        msg += "(global) RdDb (random data) item: "
+        msg += "\n   - artist_ids: " + str(self.artist_ids) 
+        msg += "\n   - venue_ids: " + str(self.venue_ids)
+        msg += "\n   - show_ids: " + str(self.show_ids)
+        msg += "\n   - genre_ids: " + str(self.genre_ids)
+        msg += "\n" + "-" * 30 + "\n"
+        msg += str(RdDb.locations)
+        return msg
+
+    def append_entity(self, ent):
+        """
+        """
+        loc = ent.city
+        ents = ent.entity_type + "s"
+        ent_ids = ent.entity_type + "_ids"
+        if ent.entity_type in ["artist", "venue"]:
+            # add entity_id to local <entity_type>_ids list
+            if ent.id not in self.model[loc][ent_ids]:
+                self.model[loc][ent_ids].append(ent.id)
+            # add entity_id key & blank dict to local <entity_type>s dict
+            if ent.id not in self.model[loc][ents]:
+                self.model[loc][ents][ent.id] = {}
+            # add entity_id to global <entity_type>s list
+            if ent.id not in self.model[ents]:
+                self.model[ents].append(ent.id)
+            # add entity_id to global self.<entity_type>_ids obj
+            if ent.entity_type == "artist" and ent.id not in self.artists:
+                self.artists.append(ent.id)
+            elif ent.entity_type == "venue" and ent.id not in self.venues:
+                self.venues.append(ent.id)
+        elif ent.entity_type == "show":
+            # add entity_id to local show_ids list
+            if ent.id not in self.model[loc]["show_ids"]:
+                self.model[loc]["show_ids"].append(ent.id)
+                # add entity_id to local <entity_type>s dict for show, venue
+                show_obj = {"venue_id": ent.venue_id,
+                            "artist_id": ent.artist_id,
+                            "start_time": ent.start_time,
+                            "end_time": ent.end_time,
+                            "show_id": ent.id}
+                if ent.id not in self.model[loc]["artists"][ent.artist_id].keys():
+                    self.model[loc]["artists"][ent.artist_id][ent.id] = show_obj
+                if ent.id not in self.model[loc]["venues"][ent.venue_id].keys():
+                    self.model[loc]["venues"][ent.venue_id][ent.id] = show_obj
+            # add entity_id to global shows list
+            if ent.id not in self.model["shows"]:
+                self.model["shows"].append(ent.id)
+            # add entity_id to global self.show_ids
+            if ent.id not in self.shows:
+                self.shows.append(ent.id)
+        self.log_global += 1
+
+    def new_genre(self, genre_name):
+        """
+        add unique genre to RdDb.genre_ids
+        """
+        if self.genres is None:
+            self.genres = []
+        if not genre_name in self.genres:
+            #find id genre_name in genres database
+            result = Select().verify_genre(genre_name)
+            # if genre_name doesn't exist in the database, add it
+            if result == False or result == -1:
+                new_genre = Genre(genre_name)
+                self.genre_ids.append(new_genre.id)
+                self.genres.append(new_genre.name)
+                logging.debug("RdDb.append_genre added " + str(self.genres))
+            else:
+                logging.debug("RdDb.new_genre found " + str(self.genres))
+        logging.info("RdDb.append_genres completed")
