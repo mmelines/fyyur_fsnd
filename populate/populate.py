@@ -679,3 +679,436 @@ class ThinData:
             else:
                 logging.debug("RdDb.new_genre found " + str(self.genres))
         logging.info("RdDb.append_genres completed")
+
+class DbData:
+    """
+    contains modules for adding new entities to database and validating that
+    it does not already exist in the database
+    """
+
+    def __init__(self, *args):
+        """
+        """
+        self.class_name = args[0]
+        self.active = False # boolean if 
+        self.error = False # boolean
+        self.status = 0
+        self.result = None # contains query result
+        self.res_list = None
+        self.query = None
+        self.value_list = []
+        if len(args) > 0:
+            if args[0] == "insert":
+                self.ins_query(args[1])
+                print("query: " + str(self.query))
+                print("value_list: " + str(self.value_list))
+                self.result = self.__repr__()
+                self.make()
+            if args[0] == "delete":
+                self.query = args[1]
+                self.result = self.delete(self.query)
+        print("REPR WITHIN DBDATA")
+        print(self.__repr__())
+        logging.info("completed DbData.__init__")
+
+    def err(self, err, exc_info, msg):
+        """
+        """
+        self.status = -1
+        self.error = {"info": exc_info[1],
+                    "msg": msg}
+        if not err is None:
+            self.error["psycopg2_error"] = '{}'.format(err)
+        self.result = False
+        return err
+
+    def delete(self, query):
+        self.query = query
+        self.log("call", "delete")
+        self.query = query
+        conn = psycopg2.connect("dbname=fyyur")
+        cur = conn.cursor()
+        self.active = True
+        if len(self.query) > 0:
+            try:
+                cur.execute(self.query)
+                self.result = "success"
+                conn.commit()
+                self.status = 1
+            except BaseException as e:
+                msg = "unspecified error"
+                conn.rollback()
+                self.result = self.err(None, sys.exc_info(), msg)
+                self.status = 0
+            finally:
+                self.active = False
+                cur.close()
+                conn.close()
+        self.log("out", "delete", result=self.result)
+        if isinstance(self.result, int):
+            return self.result
+   
+    def __repr__(self):
+        repr_iter = [["active", self.active],
+            ["error", self.error],
+            ["status", self.status],
+            ["result", self.result],
+            ["value_list", self.value_list],
+            ["class_name", self.class_name],
+            ["query", self.query]]
+
+        msg = "\n=========== "
+        if self.class_name == "Select":
+            msg += "SELECT"
+        if self.class_name == "insert":
+            msg += "INSERT"
+        if self.class_name == "delete":
+            msg += "DELETE"
+        msg += " object =============================\n"
+        for item in repr_iter:
+            if item[0] != "class_name":
+                msg += "\n" + item[0] + ": " + str(item[1])
+        if hasattr(self, "id"):
+            msg += "\nid: " + str(self.id)
+        msg += "\n=======================================================\n"
+        return msg
+
+    def log(self, log_type, ftn_name, **kwargs):
+        """
+        accepts args in [logging_type, ftn_name, class_name]
+         - log_type: can be "call", "output" or None type
+         - ftn_name: name of class function from which log was called
+         - kwargs: lists objects updated or returned by function
+        """
+        # set class_name
+        if hasattr(self, "class_name"):
+            if not self.class_name is None:
+                class_name = str(self.class_name)
+        else:
+            class_name = "DbData"
+        # 
+        if log_type == "call":
+            info_msg = "called " + class_name + "." + ftn_name
+            if len(kwargs) > 0:
+                info_msg += " using:  "
+                for arg in kwargs.keys():
+                    info_msg += "\n      - " + arg + " = " + str(kwargs[arg])
+        if log_type == "out":
+            info_msg = class_name + "." + ftn_name + " complete"
+            if len(kwargs) > 0:
+                debug_msg = class_name + "." + ftn_name + " updated: "
+                for arg in kwargs.keys():
+                    debug_msg += "\n      - self. " + arg + " to " 
+                    debug_msg += str(kwargs[arg])
+                logging.debug(debug_msg)
+        if not self.query is None and not self.result is None:
+            summary = "  summary: \n                - query: " + self.query
+            summary += "                - result: " + str(self.result)
+            logging.debug(summary)
+        logging.info(info_msg)
+
+    def log_return(self, ftn_name, **kwargs):
+        """
+        """
+        msg = " >> " + ftn_name + " returning "
+        for arg in kwargs:
+            if len(kwargs) > 1:
+                msg += "\n       * "
+            msg += arg + " = "
+            if not kwargs[arg] is None:
+                msg += str(kwargs[arg])
+            else:
+                msg += " None (type)"
+        logging.debug(msg)
+
+    def make(self):
+        """
+        execute INSERT QUERY; return ID
+        """
+        self.log("call", "make")
+        conn = psycopg2.connect("dbname=fyyur")
+        cur = conn.cursor()
+        self.active = True
+        if len(self.query) > 0:
+            try:
+                cur.execute(self.query, self.value_list)
+                if self.query.find("RETURNING") > 0:
+                    self.result = cur.fetchall()[0][0]
+                else:
+                    self.result = "success"
+                conn.commit()
+                self.status = 1
+                self.error = False
+            except psycopg2.OperationalError as e:
+                msg = "unable to connect"
+                conn.rollback()
+                self.error = self.err(e, sys.exc_info(), msg)
+            except psycopg2.IntegrityError as e:
+                msg = "probably encountered unacceptable duplicate"
+                conn.rollback()
+                self.error = self.err(e, sys.exc_info(), msg)
+            except BaseException as e:
+                msg = "unspecified error"
+                conn.rollback()
+                self.error = self.err(None, sys.exc_info(), msg)
+            finally:
+                self.active = False
+                cur.close()
+                conn.close()
+        self.log("out", "make", result=self.result)
+        if self.status == 0:
+            self.result = None
+        if isinstance(self.result, int):
+            return self.result
+
+    def get(self):
+        """
+        execute SELECT query; return result list
+        """
+        self.log("call", "get")
+        if len(self.query) > 0:
+            conn = psycopg2.connect("dbname=fyyur")
+            cur = conn.cursor()
+            self.active = True
+            try:
+                if len(self.value_list) > 0:
+                    cur.execute(self.query, self.value_list)
+                else:
+                    cur.execute(self.query)
+                self.result = self.flatten(cur.fetchall())
+                self.status = 1
+            except psycopg2.OperationalError as e:
+                msg = "unable to connect"
+                self.result = self.err(e, sys.exc_info(), msg)
+            except psycopg2.IntegrityError as e:
+                msg = "probably encountered unacceptable duplicate"
+                self.result = self.err(e, sys.exc_info(), msg)
+            except BaseException as e:
+                msg = "unspecified error"
+                self.result = self.err(None, sys.exc_info(), msg)
+            finally:
+                self.active = False
+                cur.close()
+                conn.close()
+        else:
+            logging.info("DbData.self will not run on query " + str(self.query))
+        result = []
+        if isinstance(self.result, list):
+            for item in self.result:
+                if isinstance(item, tuple) and len(item)==1:
+                    item = item[0]
+                result.append(item)
+            self.result = result
+        self.log_return("get", result=result)
+        return self.result
+
+    @staticmethod
+    def flatten(result):
+        """
+        return a formatted result for list results
+        """
+        flat = []
+        if len(result) > 0:
+            for record in result:
+                if len(record) == 1:
+                    for data in record:
+                        flat.append(data)
+                else:
+                    if len(result) == 1:
+                        for data in record:
+                            flat.append(data)
+                    elif len(result) > 1:
+                        tuple_list = []
+                        for data in record:
+                            tuple_list.append(data)
+                        flat.append(data)
+        return flat
+
+    def ins_query(self, ent):
+        """
+        generates insert query for single item
+        """
+        query = 'INSERT INTO ' + ent.entity_type + ' '
+        cols = "("
+        vals = ") VALUES ("
+        val_list = []
+        for attr in ent:
+            if attr[0] != "entity_type":
+                cols += attr[0] + ", "
+                vals += '%s, '
+                val_list.append(attr[1])
+        query += cols[:-2] + vals[:-2]
+        query += ") RETURNING id;"
+        self.query = query
+        self.value_list = val_list
+
+    @staticmethod
+    def cln_str(attr_list):
+        i = 0
+        while i < len(attr_list):
+            if (str(type(attr_list)) == "<class 'str'>"):
+                if attr_list[i].find("'") < -1:
+                    attr_list[i].replace("'", "''")
+            i += 1
+        return attr_list
+
+    @staticmethod
+    def get_entity(ent):
+        """
+        get id from specific Artist or Venue entity
+        """
+        logging.info("called DbData.get_entity")
+        query = "SELECT id FROM " + ent.entity_type + " WHERE "
+        query += "name=%s AND phone=%s;"
+        logging.debug("DbData.get_entity returning 'tuple': " + str((query, [ent.name, ent.phone], ent.entity_type)))
+        logging.info("completed DbData.")
+        return (query, [ent.name, ent.phone], ent.entity_type)       
+
+class Select(DbData):
+    """
+    functions and methods for db selects
+active
+error
+status
+result
+res_list
+value_list
+class_name
+query
+id
+    """
+
+    def __init__(self):
+        """
+        init object of class select query
+        generate queries based on specific needs for selecting automatically
+          generated entities
+        """
+        super().__init__(self, "select")
+        self.id = self.result if isinstance(self.result, int) and self.id > 0 else -1
+        logging.info("completed Select.__init__")
+
+    def get_entity_ids(self, entity_name):
+        """
+        """
+        self.log("call", "get_entity_ids")
+        self.query = 'SELECT id FROM "' + entity_name + '";'
+        self.result = self.get()
+        self.log_return("get_entity_ids", kind=entity_name, ids=self.result)
+        self.log("out", "get_entity_ids")
+        return self.result
+
+    def loc_search(self, location):
+        """
+        returns a tuple with list of venue and artist ids of entities that exist
+            in a location
+        """
+        self.log("call", "loc_search")
+        self.query = "SELECT id FROM venue WHERE city=%s;"
+        self.value_list = [location]
+        result_list = [self.get()]
+        self.query = "SELECT id FROM artist WHERE city=%s;"
+        result_list.append(self.get())
+        self.log_return("loc_search", 
+                            venue_ids=result_list[0],
+                            artist_ids=result_list[1])
+        self.log("out", "loc_search")
+        return result_list
+
+    def get_location(self, entity_name, ent_id):
+        """
+        returns location string for venue or artist id if it is a default location
+        """
+        self.log("call", "get_location", name=entity_name, id=ent_id)
+        self.query = "SELECT city, state FROM " + entity_name + " WHERE id=%s;"
+        self.value_list = [ent_id]
+        result = self.get()
+        if not isinstance(result, str) and not result is None:
+            if result in RdDb.location_names:
+                self.result = result
+        self.log_return("get_location", location=self.result)
+        self.log("out", "get_location")
+        return self.result
+
+    def get_venue_shows(self, venue_id):
+        """
+        """
+        self.log("call", "get_venue_shows", id=venue_id)
+        self.query = "SELECT id FROM show WHERE venue_id=%s;"
+        self.value_list = [venue_id]
+        vlist = self.get()
+        if isinstance(vlist, int):
+            vlist = [vlist]
+        self.log_return("get_venue_shows", shows=vlist)
+        self.log("out", "get_venue_shows")
+        return vlist
+
+    def get_artist_shows(self, artist_id):
+        """
+        """
+        self.log("call", "get_artist_shows", id=artist_id)
+        self.query = "SELECT id FROM show WHERE artist_id=%s;"
+        self.value_list = [artist_id]
+        alist = self.get()
+        if isinstance(alist, int):
+            alist = [alist]
+        self.log_return("get_venue_shows", shows=alist)
+        self.log("out", "get_venue_shows")
+        return alist
+
+    def count_shows(self, artist_id):
+        """
+        return # of shows already present in database for artist id
+        """
+        self.log("call", "count_shows", id=artist_id)
+        self.query = "SELECT COUNT id FROM show WHERE id=%s;"
+        self.value_list = [artist_id]
+        result = self.get()
+        if not result is None and result > 0 :
+            self.result = result
+        self.log_return("count_shows", count=self.result)
+        self.log("out", "count_shows")
+        return self.result
+
+    def get_show_detail(self, show_id):
+        """
+
+        """
+        self.log("call", "get_show_detail", show_id=show_id)
+        self.query = "SELECT venue_id, artist_id, start_time, end_time FROM "
+        self.query += " show WHERE id=%s;"
+        self.value_list = [show_id]
+        result = self.get()
+        return result
+
+    def verify_genre(self, genre_name):
+        self.log("call", "verify_genre")
+        self.query = "SELECT id FROM genre WHERE name=%s;"
+        self.value_list = [genre_name]
+        self.result = self.get()
+        self.log_return("verify_genre", genre_id=self.result)
+        self.log("out", "verify_genre")
+        return self.result
+
+    def get_genre(self, genre_id):
+        """
+        get name of genre from genre table
+        """
+        self.log("call", "get_genre")
+        self.query = "SELECT name FROM genre WHERE id=%s;"
+        self.value_list = [genre_id]
+        self.result = self.get()
+        self.log_return("get_genre", genre=self.result)
+        self.log("out", "genre_id")
+        return self.result
+
+    def get_genres(self):
+        """
+        get names of all genres that exist in the database
+        """
+        self.log("call", "get_genres")
+        self.query = "SELECT name FROM genre;"
+        self.result = self.get()
+        self.log_return("get_genres", genres=self.result)
+        self.log("out", "get_genres")
+        return self.result
