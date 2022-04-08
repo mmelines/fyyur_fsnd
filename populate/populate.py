@@ -711,13 +711,14 @@ class DbData:
     def __init__(self, *args):
         """
         """
+        print(args)
         self.class_name = args[0]
         self.active = False # boolean if 
         self.error = False # boolean
         self.status = 0
         self.result = None # contains query result
         self.res_list = None
-        self.query = None
+        self.query = ""
         self.value_list = []
         if len(args) > 0:
             if args[0] == "insert":
@@ -729,8 +730,6 @@ class DbData:
             if args[0] == "delete":
                 self.query = args[1]
                 self.result = self.delete(self.query)
-        print("REPR WITHIN DBDATA")
-        print(self.__repr__())
         logging.info("completed DbData.__init__")
 
     def err(self, err, exc_info, msg):
@@ -760,7 +759,7 @@ class DbData:
             except BaseException as e:
                 msg = "unspecified error"
                 conn.rollback()
-                self.result = self.err(None, sys.exc_info(), msg)
+                self.result = self.err(None, sysinfo(), msg)
                 self.status = 0
             finally:
                 self.active = False
@@ -771,16 +770,17 @@ class DbData:
             return self.result
    
     def __repr__(self):
-        repr_iter = [["active", self.active],
-            ["error", self.error],
-            ["status", self.status],
-            ["result", self.result],
-            ["value_list", self.value_list],
-            ["class_name", self.class_name],
-            ["query", self.query]]
+        repr_iter = [
+            ["active", "default" if not hasattr(self, "active") else str(self.active)],
+            ["error", "default" if not hasattr(self, "error") else str(self.error)],
+            ["status", "default" if not hasattr(self, "status") else str(self.status)],
+            ["result", "default" if not hasattr(self, "result") else str(self.result)],
+            ["value_list", "default" if not hasattr(self, "value_list") else str(self.value_list)],
+            ["class_name", "default" if not hasattr(self, "class_name") else str(self.class_name)],
+            ["query", "default" if not hasattr(self, "query") else str(self.query)]]
 
         msg = "\n=========== "
-        if self.class_name == "Select":
+        if self.class_name == "select":
             msg += "SELECT"
         if self.class_name == "insert":
             msg += "INSERT"
@@ -788,8 +788,7 @@ class DbData:
             msg += "DELETE"
         msg += " object =============================\n"
         for item in repr_iter:
-            if item[0] != "class_name":
-                msg += "\n" + item[0] + ": " + str(item[1])
+            msg += "\n" + item[0] + ": " + str(item[1])
         if hasattr(self, "id"):
             msg += "\nid: " + str(self.id)
         msg += "\n=======================================================\n"
@@ -823,10 +822,21 @@ class DbData:
                     debug_msg += "\n      - self. " + arg + " to " 
                     debug_msg += str(kwargs[arg])
                 logging.debug(debug_msg)
-        if not self.query is None and not self.result is None:
-            summary = "  summary: \n                - query: " + self.query
-            summary += "                - result: " + str(self.result)
-            logging.debug(summary)
+        summary = "  summary:"
+        if hasattr(self, "query"):
+            summary += "\n                - query: " + self.query
+        else:
+            summary += "\n                - query: none."
+        if hasattr(self, "result"):
+            summary += "\n                - attributes: " + str(self.value_list)
+        else:
+            summary += "\n                - attributes: none."
+        if hasattr(self, "value_list"):
+            summary += "\n                - result: " + str(self.result)
+        else:
+            summary += "\n                - result: none."
+        summary += "\n                - status: " + str(self.status)
+        logging.debug(summary)
         logging.info(info_msg)
 
     def log_return(self, ftn_name, **kwargs):
@@ -864,15 +874,15 @@ class DbData:
             except psycopg2.OperationalError as e:
                 msg = "unable to connect"
                 conn.rollback()
-                self.error = self.err(e, sys.exc_info(), msg)
+                self.error = self.err(e, sysinfo(), msg)
             except psycopg2.IntegrityError as e:
                 msg = "probably encountered unacceptable duplicate"
                 conn.rollback()
-                self.error = self.err(e, sys.exc_info(), msg)
+                self.error = self.err(e, sysinfo(), msg)
             except BaseException as e:
                 msg = "unspecified error"
                 conn.rollback()
-                self.error = self.err(None, sys.exc_info(), msg)
+                self.error = self.err(None, sysinfo(), msg)
             finally:
                 self.active = False
                 cur.close()
@@ -901,13 +911,13 @@ class DbData:
                 self.status = 1
             except psycopg2.OperationalError as e:
                 msg = "unable to connect"
-                self.result = self.err(e, sys.exc_info(), msg)
+                self.result = self.err(e, sysinfo(), msg)
             except psycopg2.IntegrityError as e:
                 msg = "probably encountered unacceptable duplicate"
-                self.result = self.err(e, sys.exc_info(), msg)
+                self.result = self.err(e, sysinfo(), msg)
             except BaseException as e:
                 msg = "unspecified error"
-                self.result = self.err(None, sys.exc_info(), msg)
+                self.result = self.err(None, sysinfo(), msg)
             finally:
                 self.active = False
                 cur.close()
@@ -989,15 +999,15 @@ class DbData:
 class Select(DbData):
     """
     functions and methods for db selects
-active
-error
-status
-result
-res_list
-value_list
-class_name
-query
-id
+            active
+            error
+            status
+            result
+            res_list
+            value_list
+            class_name
+            query
+            id
     """
 
     def __init__(self):
@@ -1006,8 +1016,9 @@ id
         generate queries based on specific needs for selecting automatically
           generated entities
         """
-        super().__init__(self, "select")
+        super().__init__("select")
         self.id = self.result if isinstance(self.result, int) and self.id > 0 else -1
+        print(self.__repr__())
         logging.info("completed Select.__init__")
 
     def get_entity_ids(self, entity_name):
@@ -1135,3 +1146,7 @@ id
         self.log("out", "get_genres")
         return self.result
 
+global_obj = ThinData()
+
+if __name__=="__main__":
+    global_obj.__repr__()
