@@ -494,8 +494,25 @@ class ThinData:
         self.genre_ids = Select().get_entity_ids("genre")
         self.locations = {}
         self.log_global = 0
-        self.new_singleton()
+        self.model = self.new_singleton()
         logging.info("completed RdDb __init__")
+
+    def log(self, log_type, ftn_name, **kwargs):
+        info_msg = "Thindata." + ftn_name
+        if log_type == "call":
+            info_msg = "called " + msg
+        if log_type == "out":
+            infog_msg += "completed."
+            if ftn_name == "new_singleton":
+                debug_msg = "Returning new model"
+            if "add" in kwargs.keys():
+                 debug_msg += "\nAdded " + kwargs["add"]  
+            if "find" in kwargs.keys():
+                 debug_msg += "\nFound " + kwargs["find"]
+            if "entity_string" in kwargs.keys():
+                 debug_msg += "\nUpdated model to include " + kwargs[entity_string] 
+            logging.debug(debug_msg)
+        logging.info(info_msg)
 
     def new_singleton(self):
         """
@@ -621,10 +638,13 @@ class ThinData:
     def append_entity(self, ent):
         """
         """
+        self.log("call", "append_entity")
         loc = ent.city
         ents = ent.entity_type + "s"
         ent_ids = ent.entity_type + "_ids"
+        ent_str = ""
         if ent.entity_type in ["artist", "venue"]:
+            ent_str += ent.entity_type[0] + str(ent.id)
             # add entity_id to local <entity_type>_ids list
             if ent.id not in self.model[loc][ent_ids]:
                 self.model[loc][ent_ids].append(ent.id)
@@ -640,6 +660,7 @@ class ThinData:
             elif ent.entity_type == "venue" and ent.id not in self.venues:
                 self.venues.append(ent.id)
         elif ent.entity_type == "show":
+            ent_str += "s" + str(ent.id)
             # add entity_id to local show_ids list
             if ent.id not in self.model[loc]["show_ids"]:
                 self.model[loc]["show_ids"].append(ent.id)
@@ -660,11 +681,13 @@ class ThinData:
             if ent.id not in self.shows:
                 self.shows.append(ent.id)
         self.log_global += 1
+        self.log("out", "append_entity", entity_string=ent_str)
 
     def new_genre(self, genre_name):
         """
         add unique genre to RdDb.genre_ids
         """
+        self.log("call", "new_genre")
         if self.genres is None:
             self.genres = []
         if not genre_name in self.genres:
@@ -675,10 +698,9 @@ class ThinData:
                 new_genre = Genre(genre_name)
                 self.genre_ids.append(new_genre.id)
                 self.genres.append(new_genre.name)
-                logging.debug("RdDb.append_genre added " + str(self.genres))
+                self.log("out", "new_genre", add=genre_name)
             else:
-                logging.debug("RdDb.new_genre found " + str(self.genres))
-        logging.info("RdDb.append_genres completed")
+                 self.log("out", "new_genre", find=genre_name)
 
 class DbData:
     """
@@ -1112,3 +1134,4 @@ id
         self.log_return("get_genres", genres=self.result)
         self.log("out", "get_genres")
         return self.result
+
