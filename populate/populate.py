@@ -633,7 +633,7 @@ class ThinData:
         """
         represent data in RdDb class instance
         """
-        msg = "\n" + "-" * 30 + "\n" + str(pprint(self.model))
+        msg = "\n" + "-" * 30 + "\n" + str(self.model)
         msg += "(global) RdDb (random data) item: "
         msg += "\n   - artist_ids: " + str(self.artist_ids) 
         msg += "\n   - venue_ids: " + str(self.venue_ids)
@@ -753,7 +753,8 @@ class DbData:
                     "msg": msg}
         if not err is None:
             self.error["psycopg2_error"] = '{}'.format(err)
-        logging.debug(pprint(self.error))
+        print(self.error)
+        logging.error(self.error)
         self.result = False
         return err
 
@@ -1187,12 +1188,6 @@ class Insert(DbData):
 class Entity:
     """
     Generate Attributes common to Artist and Venue Classes
-city
-state
-phone
-genre_list
-has_image
-is_seeking
     """
 
     def __init__(self, *args):
@@ -1508,9 +1503,6 @@ class Venue(Entity, DbData):
         except:
             msg = "incomplete VENUE entity\n"
             msg += "================================================"*2 + "\n"
-            for item in repr_iter:
-                print(item[0] + ": " + str(item[1])) 
-            msg += "================================================"*2 + "\n"
         finally:
             return msg + "\n\n"
 
@@ -1632,13 +1624,156 @@ class Venue(Entity, DbData):
         logging.info("called Venue.new_image_link")
         return random.choice(RdDb.venue_images)
 
+# --- Show entity object class -----------------------------------------------
+
+class Show(DbData):
+    """
+    adds additional class attributes to Event object
+    """
+    session_redef = 0
+    logging.info("completed Show.__init__")
+
+    def __init__(self, **kwargs):
+        """
+        returns instance of Show object
+        """
+        self.address = None
+        self.name = None
+        self.facebook_link = None
+        self.website_link = None
+        self.seeking_description = None
+        self.image_link = None
+        self.id = None
+        init_control = True
+        self.entity_type = "show"
+        self.all_day = False
+        if not kwargs is None:
+            self.init_control = self.set_given_ids(kwargs)
+            if self.init_control == True:
+                self.init_control = self.get_location()
+            if self.init_control == True:
+                self.init_control = self.get_other_id()
+            if self.init_control == True:
+                self.init_control = self.schedule()
+            if self.init_control == True:
+                self.id = Insert(self).id
+            else:
+                self.id = -1
+
+    def __repr__(self):
+        try:
+            msg = "\n\n=============================================="*2 + "\n"
+            msg += "SHOW entity: \n"
+            if self.id > 0:
+                msg += "id is " + str(self.id) + "\n"
+            msg += "venue_id: " + str(self.venue_id) + " & "
+            msg += "artist_id: " + str(self.artist_id) + "\n"
+            msg += "@ " + str(self.start_time) + " - " + str(self.end_time)
+            msg += "(" + str(self.all_day) + ")"
+            msg += "================================================"*2 + "\n"
+        except:
+            msg = "incomplete SHOW entity"
+        finally:
+            return msg
+
+    def __iter__(self):
+        yield ("venue_id", self.venue_id)
+        yield ("artist_id", self.artist_id)
+        yield ("start_time", self.start_time)
+        yield ("end_time", self.end_time)
+        yield ("all_day", self.all_day)
+
+    def log(self, log_type, ftn_name, *args):
+        info_msg = "Show." + ftn_name
+        if log_type == "call":
+            info_msg = "Called " + info_msg
+        if log_type == "init":
+            debug_msg = "init control is "
+            if len(args) >= 1:
+                debug_msg += str(args[0]) + " following " + ftn_name
+            logging.debug(debug_msg)
+        if log_type == "out":
+            info_msg += " completed."
+        logging.info(info_msg)
+
+    def set_given_ids(self, kwargs):
+        self.init_control = True
+        if "venue_id" in kwargs.keys():
+            if isinstance(kwargs["venue_id"], int):
+                self.venue_id = kwargs['venue_id']
+            else:
+                self.init_control = False
+            if "artist_id" in kwargs.keys():
+                self.init_type = "dual"
+                if isinstance(kwargs["artist_id"], int):
+                    self.artist_id = kwargs["artist_id"]
+                else:
+                    self.init_control = False
+            else:
+                self.init_type = "venue"
+        elif "artist_id" in kwargs.keys():
+            if isinstance(kwargs["artist_id"], int):
+                self.artist_id = kwargs["artist_id"]
+                self.init_type = "artist"
+            else:
+                self.init_control = False
+        self.log("init", "set_given_ids", self.init_control)
+        return self.init_control
+
+    def get_other_id(self):
+        init_control = True
+        if hasattr(self, "city") and self.city is None:
+            return False
+        if self.init_type == "venue":
+            pair_id = None
+            if len(global_obj.model[self.city]["artist_ids"]) > 0:
+                pair_id = random.choice(global_obj.model[self.city]["artist_ids"])
+                self.artist_id = pair_id
+            if not isinstance(pair_id, int):
+                pair_id = Artist(self.city).id
+        elif self.init_type == "artist":
+            pair_id = None
+            if len(global_obj.model[self.city]["venue_ids"]) > 0:
+                pair_id = random.choice(global_obj.model[self.city]["venue_ids"])
+                self.venue_id = pair_id
+            if not isinstance(pair_id, int):
+                pair_id = Venue(self.city).id
+        elif self.init_type == "dual":
+            pair_id = 0
+        else:
+            init_control = False
+        if pair_id is None or not isinstance(pair_id, int):
+            init_control = False
+        if not isinstance(pair_id, int):
+            init_control = False
+        self.log("init", "get_other_id", self.init_control)
+        return init_control
+
+    def get_location(self):
+        """
+        """
+        if self.init_control == False:
+            return None
+        success = False
+        if self.init_type in ["venue", "dual"]:
+            location = Select().get_location("venue", self.venue_id)
+        elif self.init_type == "artist":
+            location = Select().get_location("artist", self.artist_id)
+        if not location is None and len(location) == 2:
+            self.city = location[0]
+            self.state = location[1]
+            success = True
+        self.log("init", "get_location", self.init_control)
+        return success
+
+    def schedule(self):
+        dates = RdDb.new_schedule_item()
+        self.start_time = dates[0]
+        self.end_time = dates[0]
+        self.log("init", "schedule", self.init_control)
+        return True
+
 global_obj = ThinData()
 
 if __name__=="__main__":
-    global_obj.__repr__()
-    i = 0
-    while i < 3:
-        Artist().__repr__()
-        Venue().__repr__()
-        i += 1
-
+    pprint(global_obj.__repr__())
