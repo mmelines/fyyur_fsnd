@@ -1878,7 +1878,7 @@ class Venue(Entity, DbData):
         logging.info("called Venue.new_image_link")
         return random.choice(RdDb.venue_images)
 
-# --- Show entity object class -----------------------------------------------
+# --- Show entity object class ------------------------------------------------
 
 class Show(DbData):
     """
@@ -2027,7 +2027,37 @@ class Show(DbData):
         self.log("init", "schedule", self.init_control)
         return True
 
+# --- Genre entity object class -----------------------------------------------
+
+class Genre(DbData):
+    """
+    stores variables and functions to keep Genre function updated
+    """
+
+    def __init__(self, *args):
+        """
+        """
+        self.entity_type = "genre"
+        self.name = None
+        if len(args) == 1:
+            if isinstance(args[0], str):
+                self.name = args[0]
+                self.id = Insert(self).id
+            if isinstance(args[0], int):
+                self.copy()
+        logging.info("completed Genre.__init__")
+
+    def __iter__(self):
+        yield ("name", self.name)
+
+    def copy(self, genre_id):
+        name = Select().get_genre(genre_id)
+        if not name is None:
+            self.name = name
+        self.id = genre_id
+
 global_obj = ThinData()
 
 if __name__=="__main__":
-    pprint(global_obj.__repr__())
+    cli_ctl = CliCtl()
+    print(cli_ctl).__repr__()
