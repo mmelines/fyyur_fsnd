@@ -714,6 +714,260 @@ class ThinData:
 # / Command Line Control
 # -----------------------------------------------------------------------------
 
+class CliCtl:
+
+    def __init__(self):
+        """
+        create cli session for populate
+        """
+        self.new_values = []
+        self.new_genres = 0
+        self.new_artists = 0
+        self.new_venues = 0
+        self.new_shows = 0
+        self.clear_db(True)
+        self.commit_genres()
+        self.gen_entities(self.entity_prompt())
+        logging.info("completed .__init__")
+        for ent in self.new_values:
+            ent.__repr__()
+        pprint(global_obj.model)
+
+    def __repr__():
+        msg = "CLI CTL\n" + str(self.ent)
+        msg += "*"*20
+        msg += "\n\n***\nnew genres: " + str(self.new_genres)
+        msg += "\n\n***\nnew artists: " + str(self.new_artists)
+        msg += "\n\n***\nnew venues: " + str(self.new_venues)
+        msg += "\n\n***\nnew shows: " + str(self.new_shows)
+        return msg
+    
+    @staticmethod
+    def valid_int(int_floor, int_ceil, is_show):
+        """
+        ensures integer entered for entity_prompt is reasonable
+        """
+        logging.info("called CliCtl.valid_int")
+        is_valid = False
+        while is_valid == False:
+            try:
+                int_input = int(input(">> "))
+                if (int_input >= int_floor) and (int_input < int_ceil):
+                    is_valid = True
+                elif int_input == 0:
+                    is_valid = True
+                else:
+                    print("please enter a more reasonable integer")
+                    print("input should be more than " + str(int_floor))
+                    print("input should be less than " + str(int_ceil))
+                if is_show:
+                    msg = "remember: you are determining the number of shows "
+                    msg += "that will be generated for each artist, not the "
+                    msg += "total number of shows"
+            except ValueError:
+                print("input must be an integer")
+        logging.debug("CliCtl.valid_int returning int_input" + str(int_input))
+        logging.info("CliCtl.valid_int completed")
+        return int_input
+
+    def entity_prompt(self):
+        """
+        diplays cli input menu to get number of entities to create
+        """
+        logging.info("called CliCtl.entity_prompt")
+        prompt = "\nEnter number of %s entities to create now:\n(%s already"
+        prompt += " exist)"
+        confirm_zero = "\nNo new %ss will be created"
+        print("# artists: " + str(len(global_obj.model["artists"])))
+        print("# venues: " + str(len(global_obj.model["venues"])))
+        print("# shows: " + str(len(global_obj.model["shows"])))
+        entities = [0, 0, 0]
+        # prompt for n Artists
+        if 'artists' in global_obj.model.keys():
+            print(prompt % ("Artist", str(len(global_obj.model["artists"]))))
+        new_artists = self.valid_int(1, 1000, False)
+        if new_artists == 0:
+            print(confirm_zero % ("artist"))
+        entities[0] = new_artists
+        # prompt for n Venues
+        if 'venues' in global_obj.model.keys():
+            print(prompt % ("Venue", str(len(global_obj.model["venues"]))))
+        new_venues = self.valid_int(1, 1000, False)
+        if new_venues == 0:
+            print(confirm_zero % ("genre"))
+        entities[1] = new_venues
+        # 
+        if 'shows' in global_obj.model.keys():
+            print(prompt % ("Show", str(len(global_obj.model["shows"]))))
+            new_shows = self.valid_int(1, 20, True)
+            if new_shows == 0:
+                print(confirm_zero % ("show"))
+            entities[2] = new_shows
+        print("entity_prompt returning " + str(entities))
+        logging.debug("CliCtl.entity_prompt returning entites" + str(entities))
+        logging.info("CliCtl.entity_prompt completed")
+        return entities
+
+    def gen_entities(self, entities):
+        """
+        generate Artist, Venue and Show entities
+        number of entities created depends on DbData.entity_prompt()
+        """
+        def match_count(goal, ent_type):
+            """
+            subroutine used to add new Artist & Venue entities to CliCtl.rd_data 
+                dict (by location) and to CliCtl.
+            """
+            new_entities = 0
+            backup_count = 0
+            success = False
+            new_values = []
+            while new_entities < goal and backup_count < goal * 5:
+                if ent_type == "artist":
+                    ent = Artist()
+                    ent.__repr__()
+                if ent_type == "venue":
+                    ent = Venue()
+                    ent.__repr__()
+                print(ent_type + "id is " + str(ent.id))
+                if isinstance(ent.id, int) and ent.id > 0:
+                    new_entities += 1
+                    global_obj.append_entity(ent)
+                    self.new_values.append(ent)
+                backup_count += 1
+            if new_entities >= goal:
+                success = True
+            global_obj.model[("new_" + ent_type + "s")] = new_values
+            return success
+
+        logging.info("called CliCtl.gen_entities")
+        print("gen_entities sees " + str(entities))
+        msg = "Generating "
+        msg += str(entities[0]) + " Artist entities"
+        msg += ", " + str(entities[1]) + " Venue entities"
+        msg += ", " + str(entities[2]) + " Show entities."
+        print(msg)
+        loop_control = True
+        if entities[0] > 0:
+            loop_control = match_count(entities[0], "artist")
+            if loop_control:
+                self.new_artists += entities[0]
+        if entities[1] > 0 and loop_control:
+            loop_control = match_count(entities[1], "venue")
+            if loop_control:
+                self.new_venues += entities[1]
+        if entities[2] > 0 and loop_control:
+            for artist in global_obj.model["artists"]:
+                self.make_shows("artist", artist, entities[2])
+            for venue in global_obj.model["venues"]:
+                self.make_shows("venue", venue, entities[2])
+        logging.debug("CliCtl.gen_entities returning None (default)")
+        logging.info("CliCtl.gen_entities completed")
+
+    def make_shows(self, entity_type, entity_id, amount):
+        print("makes_shows config for show for " + entity_type + " # " + str(entity_id))
+        number = self.decide_amount(amount)
+        new_shows = 0
+        backup_counter = 0
+        try:
+            if entity_type == "venue":
+                existing = len(Select().get_venue_shows(venue_id))
+            if entity_type == "artist":
+                existing = len(Select())
+        except:
+            existing = 0
+        finally:
+            if existing < number:
+                new_shows = existing
+                while new_shows <= number and backup_counter <= (number * 3):
+                    show = None
+                    if entity_type == "artist":
+                        show = Show(artist_id=entity_id)
+                    if entity_type == "venue":
+                        show = Show(venue_id=entity_id)
+                    if not show is None and isinstance(show.id, int):
+                        if show.id > 0:
+                            new_shows += 1
+                            global_obj.append_entity(show)
+                            self.new_values.append(show)
+                    backup_counter += 1
+
+    def decide_amount(self, amount):
+        amount_top = amount + 4
+        if (amount - 4) < 3:
+            amount_bottom = 3
+        else:
+            amount_bottom = amount-4
+        amount = random.choice(range(amount_bottom, amount_top))
+        return amount
+
+    @staticmethod
+    def clear_db(confirm):
+        """
+        """
+        def confirm_confirm():
+            msg_prompt = "\nthis run will delete all existing dbentities and "
+            msg_prompt += "re-randomize the db from scratch.\nAre you sure you "
+            msg_prompt += "want to do this?"
+            print(msg_prompt)
+            answer = input(">> Y/n: ")
+            valid_answer = False
+            backup_count = 0
+            while valid_answer == False and backup_count <= 10:
+                answer = answer.strip()
+                answer = answer.lower()
+                if answer in ["y", "yes", "n", "no"]:
+                    print("answer is valid.")
+                    valid_answer = True
+                    if answer[0] == "y":
+                        print("answer was yes.")
+                        decision = True
+                    if answer[0] == "n":
+                        print("answer was no.")
+                        decision = False
+                else:
+                    backup_count += 1
+                    msg_remind = "\n\n" + answer + "is an Invalid response. "
+                    msg_remind += "Please enter YES or NO"
+                    if backup_count == 10:
+                        msg = "\nI didn't understand your responses. Existing "
+                        msg += "data will not be altered."
+                        print(msg)
+                    decision = False
+            return decision
+
+        if confirm == True:
+            confirm = confirm_confirm()
+        if confirm == True:
+            successes = 0
+            for entity in ["show", "artist", "venue", "genre"]:
+                query = "DELETE FROM " + entity + ";"
+                result = DbData("delete", query)
+                if result == "success":
+                    successes += 1
+            msg = "successfully deleted "
+            if successes == 4:
+                msg += "all existing entities"
+            elif successes > 0:
+                msg += str(successes) + " entities; error in DbData.delete()"
+            else:
+                msg += "nothing. error in DbData.delete()"
+            global_obj.model = global_obj.new_singleton()
+        else: 
+            print("this run will create additional records w/o clearing db")
+
+    def commit_genres(self):
+        for genre_name in RdDb.genre_list:
+            genre_id = None
+            backup_count = 0
+            while genre_id is None and backup_count < 10:
+                genre = Genre(genre_name)
+                genre_id = genre.id
+                backup_count += 1
+            if not genre_id is None:
+                global_obj.model["genres"][genre_name] = genre_id
+                self.new_values.append("g" + str(genre_id))
+                self.new_genres += 1
 
 #  ----------------------------------------------------------------------------
 # / Database modification & retrieval classes for psycopg2
