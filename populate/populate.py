@@ -727,7 +727,6 @@ class DbData:
     def __init__(self, *args):
         """
         """
-        print(args)
         self.class_name = args[0]
         self.active = False # boolean if 
         self.error = False # boolean
@@ -739,8 +738,6 @@ class DbData:
         if len(args) > 0:
             if args[0] == "insert":
                 self.ins_query(args[1])
-                print("query: " + str(self.query))
-                print("value_list: " + str(self.value_list))
                 self.result = self.__repr__()
                 self.make()
             if args[0] == "delete":
@@ -756,6 +753,7 @@ class DbData:
                     "msg": msg}
         if not err is None:
             self.error["psycopg2_error"] = '{}'.format(err)
+        logging.debug(pprint(self.error))
         self.result = False
         return err
 
@@ -891,14 +889,17 @@ class DbData:
                 msg = "unable to connect"
                 conn.rollback()
                 self.error = self.err(e, sysinfo(), msg)
+                self.status = 0
             except psycopg2.IntegrityError as e:
                 msg = "probably encountered unacceptable duplicate"
                 conn.rollback()
                 self.error = self.err(e, sysinfo(), msg)
+                self.status = 0
             except BaseException as e:
                 msg = "unspecified error"
                 conn.rollback()
                 self.error = self.err(None, sysinfo(), msg)
+                self.status = 0
             finally:
                 self.active = False
                 cur.close()
@@ -1034,7 +1035,6 @@ class Select(DbData):
         """
         super().__init__("select")
         self.id = self.result if isinstance(self.result, int) and self.id > 0 else -1
-        print(self.__repr__())
         logging.info("completed Select.__init__")
 
     def get_entity_ids(self, entity_name):
@@ -1173,14 +1173,15 @@ class Insert(DbData):
         generate queries based on specific needs for selecting automatically
           generated entities
         """
-        print("about to run Insert")
         entity.__repr__()
         DbData.__init__(self, "insert", entity)
-        print("ran Insert")
-        self.id = self.result if self.result > 0 else -1
+        if not self.result is None and self.result > 0:
+            self.id = self.result
+        else:
+            self.id = -2
 
 #  ----------------------------------------------------------------------------
-# / Random Entity Object Classes
+# // Random Entity Object Classes                                            //
 # ----------------------------------------------------------------------------
 
 class Entity:
@@ -1229,8 +1230,415 @@ is_seeking
             logging.log(debug_msg)
         logging.info(info_msg)
 
+# --- Artist entity object class ----------------------------------------------
+
+class Artist(Entity, DbData):
+    """
+    Generate new Artist object populated with random data to be used
+    as attributes for a Artist entity
+    """
+    attribute_list = ["entity_type", "city", "state", "phone",
+        "genre_list", "name", "facebook_link", "website_link", "is_seeking",
+        "seeking_description", "has_image", "image_link"]
+
+    def __init__(self, *args):
+        """
+        Generate new Artist object populated with random data to be used
+        as attributes for an Artist entity
+        """
+        # pylint: disable=too-many-instance-attributes
+        # one attribute is used for each required db entity attribute
+        # program is not complex or neccessary enough to re-design
+        if not args is None and len(args) == 1:
+            Entity.__init__(self, args)
+        else:
+            Entity.__init__(self)
+        self.entity_type = "artist"
+        self.name = self.generate_artist_name()
+        string_name = RdDb.uris(self.name)
+        self.facebook_link = string_name[0]
+        self.website_link = string_name[1]
+        self.seeking_description = self.seeking_desc(self.is_seeking)
+        self.image_link = self.new_image_link()
+        query = self.ins_query(self)
+        insert_obj = Insert(self)
+        self.id = insert_obj.id
+        logging.info("completed Artist.__init__")
+
+    def __repr__(self):
+        """
+        Display attributes generated for Artist object
+        """
+
+        try:
+            msg = "\n\nARTIST ENTITY" + "\n"
+            msg += "================================================"*2 + "\n"
+            msg += "name: " + self.name + " | id: " + str(self.id) + "\n"
+            msg += "city: " + self.city + ", state: " + self.state + "\n"
+            msg += "phone: " + self.phone + "\n"
+            msg += "website: " + self.website_link + "\n"
+            msg += "fb link: " + self.facebook_link + "\n"
+            if self.is_seeking:
+                msg += "Seeking talent (" + self.seeking_description + ")\n"
+            else:
+                msg += "Not seeking talent." 
+            msg += self.seeking_description + ")\n"
+            msg += "image_link exists and has " + str(int(len(self.image_link)))
+            msg += "================================================"*2 + "\n"
+            msg += "genres: " + str(self.genre_list) + "\n"
+            msg += "================================================"*2 + "\n"
+        except:
+            msg += "incomplete artist entity."
+        finally:
+            return msg + "\n\n"
+
+    def __iter__(self):
+        yield ("city", self.city)
+        yield ("state", self.state)
+        yield ("phone", self.phone)
+        yield ("genre_list", self.genre_list)
+        yield ("has_image", self.has_image)
+        yield ("is_seeking", self.is_seeking)
+        yield ("name", self.name)
+        yield ("facebook_link", self.facebook_link)
+        yield ("seeking_description", self.seeking_description)
+        yield ("website_link", self.website_link)
+        yield ("image_link", self.image_link)
+
+    def generate_artist_name(self):
+        """
+        returns name for artist entity based on random choices from RdDb
+        information
+        """
+        logging.info("Artist.generate_venue_name")
+        def full_name(self):
+            """
+            returns a random first name from list of first names and last
+            name from list of last names
+            """
+            r_names = RdDb.new_person_name()
+            return r_names[0] + " " + r_names[1]
+
+        def full_name_and(self):
+            """
+            returns randomized full name from fullName() with a plural noun
+            """
+            r_names = RdDb.new_person_name()
+            band_name = r_names[0] + " " + r_names[1]
+            plural = RdDb.new_band_word([3])[0]
+            return band_name + " and the " + plural
+
+        def full_name_band(self):
+            """
+            returns a name based on the pattern The <fullName> band.
+            fullName is generated by the fullName() function
+            """
+            r_names = RdDb.new_person_name()
+            return "The " + r_names[0] + " " + r_names[1] + " Band"
+
+        def nickname_and_thes(self):
+            """
+            returns a name combining a randomly selected nickname from a
+            list of nicknames and a plural noun
+            """
+            nickname = random.choice(RdDb.names['nicknames'])
+            plural = RdDb.new_band_word([3])[0]
+            return nickname + " and the " + plural
+
+        def two_word(self):
+            """
+            returns a name combining an adjective from a list of adjectives
+            (firstWord) and a plural noun from a list of plural nouns
+            (secondWord)
+            """
+            words = RdDb.new_band_word([2, 3])
+            return words[0] + " " + words[1]
+
+        def three_word(self):
+            """
+            returns a name combining two adjectives from two lists of
+            adjectives (firstWord and secondWord) and a plural noun from a
+            list of plural nouns (thirdWord)
+            """
+            words = RdDb.new_band_word([1, 2, 3])
+            return words[0] + " " + words[1] + " " + words[2]
+
+        def single_word(self):
+            """
+            returns a name randomly selected from a list of strings
+            """
+            return RdDb.new_band_word([0])[0]
+
+        name_choice = random.choice(range(1, 11))
+        if name_choice == 1:
+            logging.debug("   -> full name from 1")
+            name = full_name(self)
+        if name_choice == 2:
+            logging.debug("   -> full name 'and' from 2")
+            name = full_name_and(self)
+        if name_choice == 3:
+            logging.debug("   -> full name 'band' from 3")
+            name = full_name_band(self)
+        if name_choice == 4:
+            logging.debug("   -> full name nickname 'and' from 4")
+            name = nickname_and_thes(self)
+        if name_choice in (5, 6):
+            logging.debug("   -> two word from 5, 6")
+            name = two_word(self)
+        if name_choice in (7, 8):
+            logging.debug("   -> three word from 7, 8")
+            name = three_word(self)
+        if name_choice in (9, 10):
+            logging.debug("   -> single world from 9, 10")
+            name = single_word(self)
+        logging.debug("Artist.generate_venue_name to return " + str(name))
+        logging.info("Artist.generate_venue_name completed")
+        return name
+
+    @staticmethod
+    def seeking_desc(flip):
+        """
+        return tuple containing boolean if artist is seeking performance space
+        and a default message to display
+        """
+        if flip:
+            desc = "We are seeking venues for our upcoming concert schedule."
+        else:
+            desc = "Our upcoming schedule has already been filled and we do"
+            desc = desc + " not currently need to find space."
+        logging.debug("Artist.seeking_desc to return " + str(desc))
+        logging.info("Artist.seeking_desc completed")
+        return desc
+
+    def new_image_link(self):
+        """
+        returns image link from small set of image links for display on Artist
+        page
+        """
+        logging.debug("Artist.new_image_link completed")
+        return random.choice(RdDb.artist_images)
+
+# --- Venue entity object class -----------------------------------------------
+
+class Venue(Entity, DbData):
+    """
+    Contains __init__ method to form a Venue entity populated with randomized
+    data and methods specific to Venue entity attributes
+    """
+    attribute_list = ["entity_type", "city", "state", "phone",
+        "genre_list", "address", "name", "facebook_link", "website_link",
+        "is_seeking","seeking_description", "has_image", "image_link"]
+    id_list = []
+    logging.info("completed Venue.__init__")
+
+    def __init__(self, *args):
+        """
+        Generate new Venue object populated with random data to be used
+        as attributes for a Venue entity
+        """
+        # pylint: disable=too-many-instance-attributes
+        # one attribute is used for each required db entity attribute
+        # program is not complex or neccessary enough to re-design
+        self.entity_type = "venue"
+        if not args is None and len(args) == 1:
+            Entity.__init__(self, args)
+        else:
+            Entity.__init__(self)
+        self.entity_type = "venue"
+        addr = RdDb.new_address()
+        self.address = addr["address"]
+        self.name = self.generate_name(addr)
+        string_name = RdDb.uris(self.name)
+        self.facebook_link = string_name[0]
+        self.website_link = string_name[1]
+        self.seeking_description = self.seeking_desc(self.is_seeking)
+        self.image_link = self.new_image_link()
+        insert_obj = Insert(self)
+        self.id = insert_obj.id
+        logging.debug("called Venue.__init__")
+
+    def __repr__(self):
+        """
+        Display attributes generated for Venue object
+        """
+        repr_iter = [["city", 
+            "none." if not hasattr(self, "city") else str(self.city)],
+        ["state", 
+            "none." if not hasattr(self, "state") else str(self.state)],
+        ["phone", 
+            "none." if not hasattr(self, "phone") else str(self.phone)],
+        ["genre_list", 
+            "none." if not hasattr(self, "genre_list") else str(self.genre_list)],
+        ["has_image", 
+            "none." if not hasattr(self, "has_image") else str(self.has_image)],
+        ["is_seeking", 
+            "none." if not hasattr(self, "is_seeking") else str(self.is_seeking)],
+        ["entity_type", 
+            "none." if not hasattr(self, "entity_type") else str(self.entity_type)],
+        ["address", 
+            "none." if not hasattr(self, "address") else str(self.address)],
+        ["name", 
+            "none." if not hasattr(self, "name") else str(self.name)],
+        ["facebook_link", 
+            "none." if not hasattr(self, "facebook_link") else str(self.facebook_link)],
+        ["seeking_description", 
+            "none." if not hasattr(self, "seeking_description") else str(self.seeking_description)],
+        ["image_link", 
+            "none." if not hasattr(self, "image_link") else str(self.image_link)],
+        ["id", 
+            "none." if not hasattr(self, "id") else str(self.id)]]     
+
+        try:
+            msg = "\n\nVenue ENTITY\n"
+            msg += "================================================"*2 + "\n"
+            msg += "name: " + self.name + "\n"
+            msg += "address: " + self.address + "\n"
+            msg += "city: " + self.city + ", state: " + self.state + "\n"
+            msg += "phone: " + self.phone + "\n"
+            msg += "website: " + self.website_link + "\n"
+            msg += "fb link: " + self.facebook_link + "\n"
+            if self.is_seeking:
+                msg += ("Seeking talent (" + self.seeking_description + ")")
+            else: 
+                msg += ("Not seeking talent (" + self.seeking_description + ")")
+            msg += "image link: " + str(self.image_link) + "\n"
+            msg += "================================================"*2 + "\n"
+            msg += "genres: " + str(self.genre_list) + "\n"
+            msg += "================================================"*2 + "\n"
+        except:
+            msg = "incomplete VENUE entity\n"
+            msg += "================================================"*2 + "\n"
+            for item in repr_iter:
+                print(item[0] + ": " + str(item[1])) 
+            msg += "================================================"*2 + "\n"
+        finally:
+            return msg + "\n\n"
+
+    def __iter__(self):
+        yield ("address", self.address)
+        yield ("city", self.city)
+        yield ("state", self.state)
+        yield ("phone", self.phone)
+        yield ("genre_list", self.genre_list)
+        yield ("has_image", self.has_image)
+        yield ("is_seeking", self.is_seeking)
+        yield ("name", self.name)
+        yield ("facebook_link", self.facebook_link)
+        yield ("seeking_description", self.seeking_description)
+        yield ("website_link", self.website_link)
+        yield ("image_link", self.image_link)
+
+    def generate_name(self, addr):
+        """
+        determines Venue name format based on the return of random.choice()
+        accepts address as init parameters
+        """
+        logging.info("called Venue.")
+        def possessive(option):
+            """
+            returns name based on a random last name. Simple; possessive is
+            added. If option is False, returns the posessive as a description
+            of a venue type
+            """
+            last_name = RdDb.new_person_name()[1] + "'"
+            if last_name[-1] != "s":
+                venue_name = last_name + "s"
+            if option is False:
+                venue_type = RdDb.new_venue_type()
+                venue_name = venue_name + " " + venue_type
+            return venue_name
+
+        def genre_based(genres, street):
+            """
+            returns a name based on a genre in the genre_list
+            """
+            genre = random.choice(genres)
+            venue_type = RdDb.new_venue_type()
+            flip = random.choice([True, False])
+            if flip:
+                venue_name = possessive(True) + " " + genre + " " + venue_type
+            else:
+                venue_name = street + " " + genre + " " + venue_type
+            return venue_name
+
+        def location_based(city):
+            """
+            returns a venue name based on the city from the Factory object used
+            to create it
+            """
+            flip = random.choice([True, False])
+            venue_name = city + " "
+            venue_type = RdDb.new_venue_type()
+            if flip:
+                venue_name = venue_name + random.choice(self.genre_list) + " "
+            venue_name = venue_name + " " + venue_type
+            return venue_name
+
+        def street_based(genres, addr):
+            """
+            returns a venue name based on the streetname of the address
+            generated within the Venue class
+            """
+            genre = random.choice(genres)
+            venue_type = RdDb.new_venue_type()
+            roll = random.choice(["a", "b", "c"])
+            if roll=="a":
+                venue_name = addr["street"] + " " + venue_type
+            elif roll=="b":
+                venue_name = addr["street"] + " " + genre + " " + venue_type
+            elif roll=="c":
+                street_sublist = [ "Second", "Third", "First", "Fourth", "Park",
+                    "Fifth", "Main", "Sixth", "Oak", "Seventh", "Pine",
+                    "Eighth", "Washington", "Ninth", "Broad", "Ridge", "Cherry"]
+                if addr["short_street"] in street_sublist:
+                    venue_name = venue_type
+                else:
+                    venue_name = genre + " " + venue_type
+                venue_name = venue_name + " on " + addr["short_street"]
+            return venue_name
+
+        roll = random.choice(range(1, 6))
+        if roll == 1:
+            name = possessive(True)
+        elif roll == 2:
+            name = genre_based(self.genre_list, addr["street"])
+        elif roll == 3:
+            name = possessive(False)
+        elif roll == 4:
+            name = location_based(self.city)
+        elif roll == 5:
+            name = street_based(self.genre_list, addr)
+        return name
+
+    @staticmethod
+    def seeking_desc(flip):
+        """
+        return tuple containing boolean if venue is seeking talent and a default
+        message to display
+        """
+        logging.info("called Venue.")
+        if flip:
+            desc = "We encourage artists seeking a venue to schedule via the"
+            desc = desc + " fyyur app."
+        else:
+            desc = "We are currently fully booked for our available schedule."
+        return desc
+
+    def new_image_link(self):
+        """
+        returns image link from small set of image links for display on Artist
+        page
+        """
+        logging.info("called Venue.new_image_link")
+        return random.choice(RdDb.venue_images)
+
 global_obj = ThinData()
 
 if __name__=="__main__":
     global_obj.__repr__()
+    i = 0
+    while i < 3:
+        Artist().__repr__()
+        Venue().__repr__()
+        i += 1
 
