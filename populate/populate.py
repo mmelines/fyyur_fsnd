@@ -13,6 +13,10 @@ import psycopg2
 import logging
 logging.basicConfig(filename='poplog.log', level=logging.DEBUG)
 
+#  ----------------------------------------------------------------------------
+# / random data generation
+# -----------------------------------------------------------------------------
+
 class RdDb:
     """
     Contains lists & dictionaries of default data and functions to return random
@@ -481,6 +485,10 @@ class RdDb:
         end_date = start_date + datetime.timedelta(hours=hours, minutes=minutes)
         return (start_date, end_date)
 
+#  ----------------------------------------------------------------------------
+# / Temporary (global) model generation and modification
+# -----------------------------------------------------------------------------
+
 class ThinData:
 
     def __init__(self):
@@ -702,6 +710,14 @@ class ThinData:
             else:
                  self.log("out", "new_genre", find=genre_name)
 
+#  ----------------------------------------------------------------------------
+# / Command Line Control
+# -----------------------------------------------------------------------------
+
+
+#  ----------------------------------------------------------------------------
+# / Database modification & retrieval classes for psycopg2
+# -----------------------------------------------------------------------------
 class DbData:
     """
     contains modules for adding new entities to database and validating that
@@ -1162,6 +1178,56 @@ class Insert(DbData):
         DbData.__init__(self, "insert", entity)
         print("ran Insert")
         self.id = self.result if self.result > 0 else -1
+
+#  ----------------------------------------------------------------------------
+# / Random Entity Object Classes
+# ----------------------------------------------------------------------------
+
+class Entity:
+    """
+    Generate Attributes common to Artist and Venue Classes
+city
+state
+phone
+genre_list
+has_image
+is_seeking
+    """
+
+    def __init__(self, *args):
+        """
+        init instance of Entity class
+        """
+        location = RdDb.new_location(-1)
+        if not args is None and len(args) == 1:
+            if args[0] in RdDb.location_names:
+                location = RdDb.new_location(args[0])
+        self.city = location["city"]
+        self.state = location["state"]
+        self.phone = RdDb.new_phone(location["area_code"])
+        self.genre_list = RdDb.new_genres()
+        self.has_image = True
+        self.is_seeking = random.choice([True, False])
+        logging.info("completed Entity.__init__")
+
+    def log(self, log_type, ftn_name, **kwargs):
+        msg = self.entity_type[0].upper() + self.entity_type[1:] + "."
+        msg += ftn_name + " "
+        if log_type == "call":
+            info_msg = "called " + msg + " using "
+            for arg in kwargs.keys():
+                info_msg += "\n      - " + arg + " = " + str(kwargs[arg])
+        if log_type == "out":
+            info_msg = msg + "complete."
+            if len(kwargs) > 0:
+                debug_msg = class_name + "." + ftn_name + " updated: "
+                for arg in kwargs.keys():
+                    debug_msg += "\n      - self. " + arg + " to " 
+                    debug_msg += str(kwargs[arg])
+                logging.debug(debug_msg)
+                logging.debug(self.__repr__())
+            logging.log(debug_msg)
+        logging.info(info_msg)
 
 global_obj = ThinData()
 
