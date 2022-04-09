@@ -1146,7 +1146,25 @@ class Select(DbData):
         self.log("out", "get_genres")
         return self.result
 
+class Insert(DbData):
+    """
+    functions and methods for db selects
+    """
+
+    def __init__(self, entity):
+        """
+        init object of class select query
+        generate queries based on specific needs for selecting automatically
+          generated entities
+        """
+        print("about to run Insert")
+        entity.__repr__()
+        DbData.__init__(self, "insert", entity)
+        print("ran Insert")
+        self.id = self.result if self.result > 0 else -1
+
 global_obj = ThinData()
 
 if __name__=="__main__":
     global_obj.__repr__()
+
