@@ -631,7 +631,7 @@ class ThinData:
             control = self.append_local_id(obj)
         if control == True:
             control = self.append_local_id_object(obj)
-        if control == True: 
+        if control == True and extant==True: 
             control = self.append_show_id_lists(obj)
         return control
 
@@ -648,8 +648,8 @@ class ThinData:
             control = self.append_local_id(obj)
         if control == True:
             control = self.append_local_id_object(obj)
-        if control == True:
-            control = self.append_local_id_object(obj)
+        if control == True and extant==True:
+            control = self.append_show_id_lists(obj)
         return control
 
     def append_global_id(self, obj):
@@ -997,25 +997,18 @@ class CliCtl:
             new_entities = 0
             backup_count = 0
             success = False
-            new_values = []
             while new_entities < goal and backup_count < goal * 5:
+                ent = None
                 if ent_type == "artist":
-                    ent = Artist()
-                    ent.__repr__()
+                    ent = self.make_artist()
                 if ent_type == "venue":
-                    ent = Venue()
-                    ent.__repr__()
-                if isinstance(ent.id, int) and ent.id > 0:
-                    new_entities += 1
-                    global_obj.append_entity(ent)
+                    ent = self.make_venue()
+                if not ent is None:
                     self.new_values.append(ent)
+                    new_entities += 1
                 backup_count += 1
-            if new_entities >= goal:
+            if new_entities == goal:
                 success = True
-            if hasattr(global_obj.model, "new_" + ent_type + "s"):
-                global_obj.model[("new_" + ent_type + "s")].append(ent.id)
-            else:
-                global_obj.model[("new_" + ent_type + "s")] = [ent.id]
             return success
 
         logging.info("called CliCtl.gen_entities")
@@ -1027,58 +1020,111 @@ class CliCtl:
         loop_control = True
         if entities[0] > 0:
             loop_control = match_count(entities[0], "artist")
-            if loop_control:
-                self.new_artists += entities[0]
-            else:
-                print("artist creation failed.")
-        if entities[1] > 0 and loop_control:
+            entities[0] == loop_control
+        if entities[1] > 0 and loop_control == True:
             loop_control = match_count(entities[1], "venue")
-            if loop_control:
-                self.new_venues += entities[1]
-            else:
-                print("venue creation failed.")
+            entities[1] == loop_control
         if entities[2] > 0 and loop_control:
-            for artist in global_obj.model["artists"]:
-                self.make_shows("artist", artist, entities[2])
-            for venue in global_obj.model["venues"]:
-                self.make_shows("venue", venue, entities[2])
+            loop_control == self.make_all_shows(entities[2])
+            entities[2] == loop_control
         logging.debug("CliCtl.gen_entities returning None (default)")
         logging.info("CliCtl.gen_entities completed")
 
-    def make_shows(self, entity_type, entity_id, amount):
-        """
-        """
-        print("makes_shows config for show for " + entity_type + " # " + str(entity_id))
-        number = self.decide_amount(amount)
-        new_shows = 0
+    def make_artist(self):
+        ent = Artist()
+        if isinstance(ent.id, int) and ent.id > 0:
+            status = global_obj.append_artist(False, ent.city, ent.id)
+            if status == True:
+                self.new_artists += 1
+                self.new_values.append(ent)
+            else:
+                print("14")
+                ent = None
+        else:
+            print("15")
+            ent = None
+        return ent
+
+    def make_venue(self):
+        ent = Venue()
+        if isinstance(ent.id, int) and ent.id > 0:
+            status = global_obj.append_venue(False, ent.city, ent.id)
+            if status == True:
+                self.new_venues += 1
+                self.new_values.append(ent)
+            else:
+                print("16")
+                ent = None
+        else:
+            print('17')
+            ent = None
+        return ent
+
+    def make_show(self, source_type, source_id):
+        if source_type in ["artist", "venue"]:
+            if source_type == "artist":
+                ent = Show(artist_id=source_id)
+            if source_type == "venue":
+                ent = Show(venue_id=source_id)
+        else:
+            print('20')
+            ent = None
+        if isinstance(show.id, int and ent.id > 0):
+            status = global_obj.append_show(False, ent.city, ent.id)
+            if status == True:
+                self.new_shows += 1
+                self.new_values.append(ent)
+            else:
+                print("18")
+                ent = None
+        else:
+            print('19')
+            ent = None
+        return ent
+
+    def make_shows(self, obj):
+        show_counter = 0
         backup_counter = 0
-        try:
-            if entity_type == "venue":
-                existing = len(Select().get_venue_shows(venue_id))
-            if entity_type == "artist":
-                existing = len(Select().get_artist_shows(artist_id))
-        except:
-            existing = 0
-        finally:
-            print("  ==> found " + str(existing) + "shows for entity")
-            if existing < number:
-                new_shows = existing
-                while new_shows <= number and backup_counter <= (number * 3):
-                    show = None # default show value
-                    # pass correct id value for init
-                    if entity_type == "artist":
-                        show = Show(artist_id=entity_id)
-                    if entity_type == "venue":
-                        show = Show(venue_id=entity_id)
-                    print(show.__repr__())
-                    # increment counter if show is successfully created
-                    if not show is None and isinstance(show.id, int):
-                        if show.id > 0:
-                            new_shows += 1
-                            global_obj.append_entity(show)
-                            self.new_values.append(show)
-                    # increment backup counter for failed attempt
-                    backup_counter += 1
+        print(obj)
+        msg = " shows for " + obj["source"] + " # " + str(obj["source_id"])
+        while show_counter < obj["goal"] and backup_counter < obj["goal"]*5:
+            if obj["source"] == "artist":
+                ent = Show(artist_id=obj["source_id"])
+            if obj["source"] == "venue":
+                ent = Show(venue_id=obj["source_id"])
+            if isinstance(ent.id, int) and ent.id > 0:
+                show_counter += 1
+            backup_counter += 1
+        print("  * created " + str(show_counter) + msg)
+        if show_counter == obj["goal"]:
+            return show_counter
+        else:
+            return None
+
+    def make_all_shows(self, amount):
+        """
+        """
+        if amount < 3:
+            amount = 3
+        s_list = []
+        failures = []
+        total_shows = 0
+        for a_id in global_obj.model["artists"]:
+            s_list.append([a_id, "artist", len(Select().get_artist_shows(a_id))])
+        for v_id in global_obj.model["venues"]:
+            s_list.append([v_id, "venue", len(Select().get_venue_shows(v_id))])
+        for item in s_list:
+            print("item: " + str(item))
+            obj = {"source": item[1],
+                    "source_id": item[0],
+                    "goal": random.choice(range(amount, amount+5)) - item[2]}
+            print("obj: " + str(obj))
+            result = self.make_shows(obj)
+            if result is None:
+                failures.append(obj)
+            if isinstance(result, int):
+                total_shows += result
+        return [total_shows, failures]
 
     def decide_amount(self, amount):
         amount_top = amount + 4
@@ -2182,14 +2228,14 @@ class Show(DbData):
                     print("made venue ent " + ent.__repr__())
                     if isinstance(ent.id, int) and ent.id > 0:
                         self.artist_id = ent.id
-                        global_obj.append_artist(self.city, ent.id)
+                        global_obj.append_artist(False, self.city, ent.id)
                     else:
                         init_control = False
                 if self.init_type=="artist":
                     ent = Venue(self.city)
                     if isinstance(ent.id, int) and ent.id > 0:
                         self.venue_id = ent.id
-                        global_obj.append_venue(self.city, ent.id)
+                        global_obj.append_venue(False, self.city, ent.id)
                     else:
                         init_control = False
         self.log("out",
