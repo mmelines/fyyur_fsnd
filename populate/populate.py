@@ -495,34 +495,53 @@ class ThinData:
         """
         init instance of RdDb item
         """
-        self.artist_ids = Select().get_entity_ids("artist")
-        self.venue_ids = Select().get_entity_ids("venue")
-        self.show_ids = Select().get_entity_ids("show")
-        self.genres = Select().get_genres()
-        self.genre_ids = Select().get_entity_ids("genre")
-        self.locations = {}
+        self.log("call", "__init__")
+        self.locs = {}
         self.log_global = 0
-        self.model = self.new_singleton()
+        self.genre_ids = []
+        self.genres = {}
+        self.artist_ids = []
+        self.venue_ids = []
+        self.show_ids = []
+        self.model = self.blank_singleton()
         logging.info("completed RdDb __init__")
 
     def log(self, log_type, ftn_name, **kwargs):
         info_msg = "Thindata." + ftn_name
         if log_type == "call":
-            info_msg = "called " + msg
+            info_msg = "called " + info_msg
         if log_type == "out":
-            infog_msg += "completed."
-            if ftn_name == "new_singleton":
-                debug_msg = "Returning new model"
+            info_msg += "completed."
+            debug_msg = ""
+            if ftn_name == "append_existing":
+                debug_msg += "Returning new model"
             if "add" in kwargs.keys():
                  debug_msg += "\nAdded " + kwargs["add"]  
             if "find" in kwargs.keys():
                  debug_msg += "\nFound " + kwargs["find"]
             if "entity_string" in kwargs.keys():
-                 debug_msg += "\nUpdated model to include " + kwargs[entity_string] 
+                 debug_msg += "\nUpdated model to include "
+                 debug_msg += kwargs["entity_string"] 
             logging.debug(debug_msg)
         logging.info(info_msg)
 
-    def new_singleton(self):
+    def blank_singleton(self):
+        """
+        """
+        model = {"artists": [],
+                    "shows": [],
+                    "venues": []}
+        for loc in RdDb.location_names:
+            obj = {"venues": {},
+                            "venue_ids": [],
+                            "artists": {},
+                            "artist_ids": [],
+                            "shows": {"ids": []}}
+            model[loc] = obj
+            self.locs[loc] = obj
+        return model
+
+    def append_existing(self):
         """
         get all venue and artist ids by location and add them to both:
             - self.locations[location]["venue_ids"] and
@@ -532,172 +551,275 @@ class ThinData:
         """
         def log_singleton(function, *args):
             """
-            logging functions for RdDb.new_singleton
+            logging functions for RdDb.append_existing
             """
             if function == "call":
-                msg = "called RdDb.new_singleton()"
+                msg = "called RdDb.append_existing()"
                 logging.info(msg)
             if function == "summarize" and len(args) == 3:
                 data_function = "self.venue_ids is " + str(args[1])
                 data_function += "\n  & self.artist_ids is " + str(args[2])
                 logging.debug(data_function)
-                msg = "Rd.Db.new_singleton completed"
+                msg = "Rd.Db.append_existing completed"
                 logging.info(msg)
 
         log_singleton("call")
-        self.model = {}
-        self.artists = []
-        self.venues = []
-        self.shows = []
-        self.genres = []
         for location in RdDb.location_names:
-            obj = {"venues": {},
-                    "venue_ids": [],
-                    "artists": {},
-                    "artist_ids": [],
-                    "shows": []}
+            self.locs[location] = {"venues": {},
+                                    "venue_ids": [],
+                                    "artists": {},
+                                    "artist_ids": [],
+                                    "shows": {"ids": []}}
             ids = Select().loc_search(location)
-            # add venue info to each location
+            # add venue info to location
             for item in ids[0]:
-                # add item to list of location venue_ids
-                obj["venue_ids"].append(item)
-                self.venues.append(item)
-                # add blank scheduling item to list of location venue_ids
-                obj["venues"][item] = {"shows": {}}
-                # get show details for every venue in the specified area
-                venue_shows = Select().get_venue_shows(item)
-                # if the query returns a result, add: 
-                #  - a show id to self.venue_shows
-                if not venue_shows is None:
-                    # add show_ids to obj["shows"] if it's not there already
-                    for show_id in venue_shows:
-                        # add start date listing as the key
-                        # obj["venues"][item][]
-                        if not show_id in obj["shows"]:
-                            obj["shows"].append(show_id)
-                        if not show_id in self.shows:
-                            self.shows.append(show_id)
-            # add artist info to each location !!TODO
+                self.append_venue(True, location, item)
+            # add artist info to location
             for item in ids[1]:
-                obj["artist_ids"].append(item)
-                if not item in self.artists:
-                    self.artists.append(item)
-                obj["artists"][item] = {"shows": {}}
-                artist_shows = Select().get_artist_shows(item)
-                if not artist_shows is None:
-                    # add show_ids to obj["shows"] if it's not there already
-                    #    continues 
-                    for show_id in artist_shows:
-                        if not show_id in obj["shows"]:
-                            obj["shows"].append(show_id)
-                        if not show_id in self.shows:
-                            self.shows.append(show_id)
-            for item in obj["shows"]:
-                dtl = Select().get_show_detail(item)
-                if not dtl == []:
-                    # if show_id isn't already in the location show obj, add:
-                    #   - the show id to to obj[<entity_type>s][<id>][show_ids]
-                    #   - the detailed scheduling object to blank space created
-                    #       in obj[<entity_type>s][<id>] with key [start_time]
-                    show_obj = {"venue_id": dtl[0],
-                            "artist_id": dtl[1],
-                            "start_time": dtl[2],
-                            "end_time": dtl[3],
-                            "show_id": item}
-                    same_day = True
-                    if dtl[3].day != dtl[2].day:
-                        same_day = False
-                        second_start = datetime.datetime(dtl[3].year,
-                                                            dtl[3].month,
-                                                            dtl[3].day,
-                                                            1, 0, 0)
-                    if not item in obj["artists"][dtl[1]]["shows"].keys():
-                        obj["artists"][dtl[1]]["shows"][item] = dtl[2]
-                        obj["artists"][dtl[1]]["shows"][dtl[2]] = show_obj
-                        if not same_day:
-                            obj["artists"][dtl[1]][second_start] = show_obj
-                    if not item in obj["venues"][dtl[0]]["shows"].keys():
-                        obj["venues"][dtl[0]]["shows"][item] = dtl[2]
-                        obj["venues"][dtl[0]]["shows"][dtl[2]] = show_obj
-                        if not same_day:
-                            obj["venues"][dtl[0]][second_start] = show_obj
-            self.model[location] = obj
-        self.model["artists"] = self.artists
-        self.model["venues"] = self.venues
-        self.model["shows"] = self.shows
+                self.append_artist(True, location, item)
+            # add show details to location
+            for item in self.locs[location]["shows"]["ids"]:
+                self.append_show(True, location, item)
+            self.locs[location] = self.model[location]
+        self.model["artists"] = self.artist_ids
+        self.model["venues"] = self.venue_ids
+        self.model["shows"] = self.show_ids
         self.model["genres"] = {}
         log_singleton("summarize", self.venue_ids, self.artist_ids)
         return self.model
+
+    def transfer_locs(self):
+        for location in RdDb.location_names:
+            self.locs[location] = self.model[location]
 
     def __repr__(self):
         """
         represent data in RdDb class instance
         """
-        msg = "\n" + "-" * 30 + "\n" + str(self.model)
+        msg = "\n" + "-" * 30 + "\n" + str(pprint(self.model))
         msg += "(global) RdDb (random data) item: "
         msg += "\n   - artist_ids: " + str(self.artist_ids) 
         msg += "\n   - venue_ids: " + str(self.venue_ids)
         msg += "\n   - show_ids: " + str(self.show_ids)
         msg += "\n   - genre_ids: " + str(self.genre_ids)
         msg += "\n" + "-" * 30 + "\n"
-        msg += str(RdDb.locations)
         return msg
 
-    def append_entity(self, ent):
+    def self_populate(self, retain_blank):
         """
         """
-        self.log("call", "append_entity")
-        loc = ent.city
-        ents = ent.entity_type + "s"
-        ent_ids = ent.entity_type + "_ids"
-        ent_str = ""
-        if ent.entity_type in ["artist", "venue"]:
-            ent_str += ent.entity_type[0] + str(ent.id)
-            # add entity_id to local <entity_type>_ids list
-            if ent.id not in self.model[loc][ent_ids]:
-                self.model[loc][ent_ids].append(ent.id)
-            # add entity_id key & blank dict to local <entity_type>s dict
-            if ent.id not in self.model[loc][ents]:
-                self.model[loc][ents][ent.id] = {}
-            # add entity_id to global <entity_type>s list
-            if ent.id not in self.model[ents]:
-                self.model[ents].append(ent.id)
-            # add entity_id to global self.<entity_type>_ids obj
-            if ent.entity_type == "artist" and ent.id not in self.artists:
-                self.artists.append(ent.id)
-            elif ent.entity_type == "venue" and ent.id not in self.venues:
-                self.venues.append(ent.id)
-        elif ent.entity_type == "show":
-            ent_str += "s" + str(ent.id)
-            # add entity_id to local show_ids list
-            if ent.id not in self.model[loc]["show_ids"]:
-                self.model[loc]["show_ids"].append(ent.id)
-                # add entity_id to local <entity_type>s dict for show, venue
-                show_obj = {"venue_id": ent.venue_id,
-                            "artist_id": ent.artist_id,
-                            "start_time": ent.start_time,
-                            "end_time": ent.end_time,
-                            "show_id": ent.id}
-                if ent.id not in self.model[loc]["artists"][ent.artist_id].keys():
-                    self.model[loc]["artists"][ent.artist_id][ent.id] = show_obj
-                if ent.id not in self.model[loc]["venues"][ent.venue_id].keys():
-                    self.model[loc]["venues"][ent.venue_id][ent.id] = show_obj
-            # add entity_id to global shows list
-            if ent.id not in self.model["shows"]:
-                self.model["shows"].append(ent.id)
-            # add entity_id to global self.show_ids
-            if ent.id not in self.shows:
-                self.shows.append(ent.id)
-        self.log_global += 1
-        self.log("out", "append_entity", entity_string=ent_str)
+        if retain_blank == False:
+            self.artist_ids = Select().get_entity_ids("artist")
+            self.venue_ids = Select().get_entity_ids("venue")
+            self.show_ids = Select().get_entity_ids("show")
+            self.model = self.append_existing()
+        print("****MODEL" + "*"*30)
+        pprint(self.model)
+        print("****LOCS" + "*"*30)
+        pprint(self.locs)
+
+    def append_venue(self, extant, loc, v_id):
+        """
+        add venue id (v_id)
+        """
+        obj = {"type": "venue",
+                "loc": loc,
+                "extant": extant,
+                "id": v_id}
+        control = self.append_global_id(obj)
+        if control == True:
+            control = self.append_local_id(obj)
+        if control == True:
+            control = self.append_local_id_object(obj)
+        if control == True: 
+            control = self.append_show_id_lists(obj)
+        return control
+
+    def append_artist(self, extant, loc, a_id):
+        """
+        add artist id (a_id)
+        """
+        obj = {"type": "artist",
+                "loc": loc,
+                "extant": extant, 
+                "id": a_id}
+        control = self.append_global_id(obj)
+        if control == True:
+            control = self.append_local_id(obj)
+        if control == True:
+            control = self.append_local_id_object(obj)
+        if control == True:
+            control = self.append_local_id_object(obj)
+        return control
+
+    def append_global_id(self, obj):
+        """
+
+        """
+        success = False
+        if obj["type"] == "venue":
+            dest = self.model["venues"]
+            ext_dest = self.venue_ids
+        if obj["type"] == "show":
+            dest = self.model["shows"]
+            ext_dest = self.show_ids
+        if obj["type"] == "artist":
+            dest = self.model["artists"]
+            ext_dest = self.artist_ids
+        if obj["id"] not in dest:
+            try:
+                dest.append(obj["id"])
+                success = True
+            except:
+                print("1")
+        if obj["id"] not in ext_dest and obj["ext"] == True:
+            try:
+                ext_dest.append(obj["id"])
+                success = True
+            except:
+                print("2")
+        return success
+
+    def append_local_id(self, obj):
+        """
+        """
+        success = False
+        if obj["type"] == "venue":
+            dest = self.model[obj["loc"]]["venue_ids"]
+        if obj["type"] == "artist":
+            dest = self.model[obj["loc"]]["artist_ids"]
+        if obj["type"] == "show":
+            dest = self.model[obj["loc"]]["shows"]["ids"]
+        if obj["id"] not in dest:
+            try:
+                dest.append(obj["id"])
+                self.locs[obj["loc"]] = self.model[obj["loc"]]
+                success = True
+            except:
+                print("1")
+        return success
+
+    def append_local_id_object(self, obj):
+        """
+        """
+        success = False
+        if obj["type"] == "venue":
+            dest = self.model[obj["loc"]]["venues"]
+        if obj["type"] == "artist":
+            dest = self.model[obj["loc"]]["artists"]
+        if obj["type"] in ["venue", "artist"]:
+            if obj["id"] not in dest:
+                try:
+                    dest[obj["id"]] = {"shows": []}
+                    self.locs[obj["loc"]]
+                    success = True
+                except:
+                    print("5")
+        if obj["type"] == "show":
+            show_additions = 0
+            dest1 = self.model[obj["loc"]]["venues"]
+            try:
+                dest[obj["id"]]["shows"].append(obj["id"])
+                show_additions += 1
+            except:
+                print("6")
+            dest2 = self.model[obj["loc"]]["artists"]
+            try:
+                dest[obj["id"]]["shows"].append(obj["id"])
+                show_additions += 1
+            except:
+                print("7")
+            if show_additions == 2:
+                success == True
+        return success
+
+    def append_show_id_lists(self, obj):
+        """
+        """
+        def append_show(show_id, local_list, global_list):
+            if not show_id in local_list:
+                local_list.append(show_id)
+            if not show_id in global_list:
+                global_list.append(show_id)
+
+        success = False
+        if obj["type"] == "artist":
+            show_sublist = Select().get_artist_shows(obj["id"])
+        if obj["type"] == "venue":
+            show_sublist = Select().get_venue_shows(obj["id"])
+        local_list = self.model[obj["loc"]]["shows"]["ids"]
+        print(show_sublist)
+        try:
+            if not show_sublist is None and isinstance(show_sublist, list):
+                for show_id in show_sublist:
+                    append_show(show_id, local_list, self.model["shows"])
+            self.locs[obj["loc"]]["shows"]["ids"] = local_list
+            success = True
+        except:
+            print("8")
+        return success
+
+    def append_show(self, extant, loc, s_id):
+        """
+        """
+        success = False
+        placement = True
+        obj = self.show_detail(s_id)
+        obj["loc"] = loc
+        try:
+            a_dest = self.model[obj["loc"]]["artists"][obj["artist"]]
+        except:
+            print("10")
+            placement = False
+        try:
+            v_dest = self.model[obj["loc"]]["venues"][obj["venue"]]
+        except:
+            print("11")
+            placement = False
+        if placement == True:
+            try:
+                a_dest["shows"].append(obj["show_id"])
+                a_dest[obj["start"]] = obj["show_id"]
+                a_dest[obj["show_id"]] = obj
+                success = True
+            except:
+                print("12")
+                success = False
+            try:
+                v_dest["shows"].append(obj["show_id"])
+                v_dest[obj["start"]] = obj["show_id"]
+                v_dest[obj["show_id"]] = obj
+                success = True
+            except:
+                print("13")
+                success = False
+        return success
+
+    def show_detail(self, s_id):
+        """
+        form show_detail object
+        """
+        dtl = Select().get_show_detail(s_id)
+        s_obj = {"venue": int(dtl[0]),
+                    "artist": int(dtl[1]),
+                    "start": dtl[2],
+                    "end": dtl[3],
+                    "show_id": int(s_id)}
+        same_day = True
+        if dtl[3].day != dtl[2].day:
+            same_day = False
+            second_start = datetime.datetime(dtl[3].year,
+                                                dtl[3].month,
+                                                dtl[3].day,
+                                                1, 0, 0)
+            s_obj["second_start"] = second_start
+        return s_obj
 
     def new_genre(self, genre_name):
         """
         add unique genre to RdDb.genre_ids
         """
         self.log("call", "new_genre")
-        if self.genres is None:
-            self.genres = []
         if not genre_name in self.genres:
             #find id genre_name in genres database
             result = Select().verify_genre(genre_name)
@@ -722,16 +844,17 @@ class CliCtl:
         """
         self.new_values = []
         self.new_genres = 0
+        self.existing_genres = 0
         self.new_artists = 0
+        self.existing_artists = 0
         self.new_venues = 0
+        self.existing_venues = 0
         self.new_shows = 0
-        self.clear_db(True)
+        self.existing_shows = 0
+        global_obj.self_populate(self.delete_prompt())
         self.commit_genres()
         self.gen_entities(self.entity_prompt())
         logging.info("completed .__init__")
-        for ent in self.new_values:
-            ent.__repr__()
-        pprint(global_obj.model)
 
     def __repr__():
         msg = "CLI CTL\n" + str(self.ent)
@@ -741,7 +864,16 @@ class CliCtl:
         msg += "\n\n***\nnew venues: " + str(self.new_venues)
         msg += "\n\n***\nnew shows: " + str(self.new_shows)
         return msg
-    
+
+    def log(self, log_type, ftn_name, **kwargs):
+        """
+        """
+        info_msg = "CliCtl." + ftn_name
+        if log_type == "call":
+            info_msg = "called " + info_msg
+        if log_type == "out":
+            info_msg += " completed"
+
     @staticmethod
     def valid_int(int_floor, int_ceil, is_show):
         """
@@ -770,17 +902,61 @@ class CliCtl:
         logging.info("CliCtl.valid_int completed")
         return int_input
 
+    def delete_prompt(self):
+        """
+        displays cli input menu to determine weather to clear db before running 
+        program
+        """
+        delete_control = None
+        blank_obj = None
+        self.existing_venues = Select().count_total("venue")[0]
+        self.existing_artists = Select().count_total("artist")[0]
+        self.existing_shows = Select().count_total("show")[0]
+        self.existing_values = self.existing_venues
+        self.existing_values += self.existing_artists
+        self.existing_values += self.existing_shows
+        i = 0
+        if self.existing_values > 0:
+            while delete_control is None and i < 10:
+                msg = "Database currently contains: "
+                item = "\n    - {} {}"
+                if self.existing_venues > 0: 
+                    msg += item.format(str(self.existing_venues), "venues")
+                if self.existing_artists > 0:
+                    msg += item.format(str(self.existing_artists), "artists")
+                if self.existing_shows > 0:
+                    msg += item.format(str(self.existing_shows), "shows")
+                print(msg)
+                print("Would you like to clear all existing entities? (Y/n)")
+                decision = input(">> ").lower()
+                if decision in ["y", "n", "yes", "no"]:
+                    if decision in ["y", "yes"]:
+                        self.clear_db()
+                        delete_control = True
+                        blank_obj = True
+                    if decision in ["n", 'no']:
+                        delete_control = False
+                        blank_obj = False
+                else:
+                    print("invalid input. Try again. \n\n")
+                    i += 1
+                    if i >= 9:
+                        print("Too many invalid entries. Exiting program.")
+        else:
+            print("Database is currently empty")
+            blank_obj = True
+            delete_control = False
+        return blank_obj
+
     def entity_prompt(self):
         """
         diplays cli input menu to get number of entities to create
         """
         logging.info("called CliCtl.entity_prompt")
+        ## TODO: Get existing number of artist, show, and venue entities
         prompt = "\nEnter number of %s entities to create now:\n(%s already"
         prompt += " exist)"
         confirm_zero = "\nNo new %ss will be created"
-        print("# artists: " + str(len(global_obj.model["artists"])))
-        print("# venues: " + str(len(global_obj.model["venues"])))
-        print("# shows: " + str(len(global_obj.model["shows"])))
         entities = [0, 0, 0]
         # prompt for n Artists
         if 'artists' in global_obj.model.keys():
@@ -829,7 +1005,6 @@ class CliCtl:
                 if ent_type == "venue":
                     ent = Venue()
                     ent.__repr__()
-                print(ent_type + "id is " + str(ent.id))
                 if isinstance(ent.id, int) and ent.id > 0:
                     new_entities += 1
                     global_obj.append_entity(ent)
@@ -837,11 +1012,13 @@ class CliCtl:
                 backup_count += 1
             if new_entities >= goal:
                 success = True
-            global_obj.model[("new_" + ent_type + "s")] = new_values
+            if hasattr(global_obj.model, "new_" + ent_type + "s"):
+                global_obj.model[("new_" + ent_type + "s")].append(ent.id)
+            else:
+                global_obj.model[("new_" + ent_type + "s")] = [ent.id]
             return success
 
         logging.info("called CliCtl.gen_entities")
-        print("gen_entities sees " + str(entities))
         msg = "Generating "
         msg += str(entities[0]) + " Artist entities"
         msg += ", " + str(entities[1]) + " Venue entities"
@@ -852,10 +1029,14 @@ class CliCtl:
             loop_control = match_count(entities[0], "artist")
             if loop_control:
                 self.new_artists += entities[0]
+            else:
+                print("artist creation failed.")
         if entities[1] > 0 and loop_control:
             loop_control = match_count(entities[1], "venue")
             if loop_control:
                 self.new_venues += entities[1]
+            else:
+                print("venue creation failed.")
         if entities[2] > 0 and loop_control:
             for artist in global_obj.model["artists"]:
                 self.make_shows("artist", artist, entities[2])
@@ -865,6 +1046,8 @@ class CliCtl:
         logging.info("CliCtl.gen_entities completed")
 
     def make_shows(self, entity_type, entity_id, amount):
+        """
+        """
         print("makes_shows config for show for " + entity_type + " # " + str(entity_id))
         number = self.decide_amount(amount)
         new_shows = 0
@@ -873,23 +1056,28 @@ class CliCtl:
             if entity_type == "venue":
                 existing = len(Select().get_venue_shows(venue_id))
             if entity_type == "artist":
-                existing = len(Select())
+                existing = len(Select().get_artist_shows(artist_id))
         except:
             existing = 0
         finally:
+            print("  ==> found " + str(existing) + "shows for entity")
             if existing < number:
                 new_shows = existing
                 while new_shows <= number and backup_counter <= (number * 3):
-                    show = None
+                    show = None # default show value
+                    # pass correct id value for init
                     if entity_type == "artist":
                         show = Show(artist_id=entity_id)
                     if entity_type == "venue":
                         show = Show(venue_id=entity_id)
+                    print(show.__repr__())
+                    # increment counter if show is successfully created
                     if not show is None and isinstance(show.id, int):
                         if show.id > 0:
                             new_shows += 1
                             global_obj.append_entity(show)
                             self.new_values.append(show)
+                    # increment backup counter for failed attempt
                     backup_counter += 1
 
     def decide_amount(self, amount):
@@ -902,76 +1090,49 @@ class CliCtl:
         return amount
 
     @staticmethod
-    def clear_db(confirm):
+    def clear_db():
         """
         """
-        def confirm_confirm():
-            msg_prompt = "\nthis run will delete all existing dbentities and "
-            msg_prompt += "re-randomize the db from scratch.\nAre you sure you "
-            msg_prompt += "want to do this?"
-            print(msg_prompt)
-            answer = input(">> Y/n: ")
-            valid_answer = False
-            backup_count = 0
-            while valid_answer == False and backup_count <= 10:
-                answer = answer.strip()
-                answer = answer.lower()
-                if answer in ["y", "yes", "n", "no"]:
-                    print("answer is valid.")
-                    valid_answer = True
-                    if answer[0] == "y":
-                        print("answer was yes.")
-                        decision = True
-                    if answer[0] == "n":
-                        print("answer was no.")
-                        decision = False
-                else:
-                    backup_count += 1
-                    msg_remind = "\n\n" + answer + "is an Invalid response. "
-                    msg_remind += "Please enter YES or NO"
-                    if backup_count == 10:
-                        msg = "\nI didn't understand your responses. Existing "
-                        msg += "data will not be altered."
-                        print(msg)
-                    decision = False
-            return decision
-
-        if confirm == True:
-            confirm = confirm_confirm()
-        if confirm == True:
-            successes = 0
-            for entity in ["show", "artist", "venue", "genre"]:
-                query = "DELETE FROM " + entity + ";"
-                result = DbData("delete", query)
-                if result == "success":
-                    successes += 1
-            msg = "successfully deleted "
-            if successes == 4:
-                msg += "all existing entities"
-            elif successes > 0:
-                msg += str(successes) + " entities; error in DbData.delete()"
-            else:
-                msg += "nothing. error in DbData.delete()"
-            global_obj.model = global_obj.new_singleton()
-        else: 
-            print("this run will create additional records w/o clearing db")
+        successes = 0
+        for entity in ["show", "artist", "venue", "genre"]:
+            query = "DELETE FROM " + entity + ";"
+            result = DbData("delete", query)
+            if result == "success":
+                successes += 1
 
     def commit_genres(self):
-        for genre_name in RdDb.genre_list:
-            genre_id = None
-            backup_count = 0
-            while genre_id is None and backup_count < 10:
-                genre = Genre(genre_name)
-                genre_id = genre.id
-                backup_count += 1
-            if not genre_id is None:
-                global_obj.model["genres"][genre_name] = genre_id
-                self.new_values.append("g" + str(genre_id))
-                self.new_genres += 1
+        genre_count = Select().count_total("genre")[0]
+        self.log("call", "commit_genres")
+        if genre_count < len(RdDb.genre_list):
+            existing_genres = []
+            for genre_name in RdDb.genre_list:
+                if not genre_name in global_obj.genres:
+                    genre_id = None
+                    backup_count = 0
+                    while genre_id is None and backup_count < 10:
+                        genre = Genre(genre_name)
+                        genre_id = genre.id
+                        backup_count += 1
+                    if isinstance(genre_id, int) and genre_id > 0:
+                        global_obj.genres[genre_name] = genre_id
+                        global_obj.genre_ids.append(genre_id)
+                        self.new_values.append("g_" + str(genre_id))
+                        self.new_genres += 1
+                else:
+                    existing_genres.append(genre_name)
+        else:
+            existing_genres = RdDb.genre_list[::]
+        for genre_name in existing_genres:
+            genre_id = Select().verify_genre(genre_name)
+            if isinstance(genre_id, list) and len(genre_id) == 1:
+                global_obj.genres[genre_name] = genre_id[0]
+                global_obj.genre_ids.append(genre_id[0])
+        self.log("out", "commit_genres")
 
 #  ----------------------------------------------------------------------------
 # / Database modification & retrieval classes for psycopg2
 # -----------------------------------------------------------------------------
+
 class DbData:
     """
     contains modules for adding new entities to database and validating that
@@ -990,10 +1151,6 @@ class DbData:
         self.query = ""
         self.value_list = []
         if len(args) > 0:
-            if args[0] == "insert":
-                self.ins_query(args[1])
-                self.result = self.__repr__()
-                self.make()
             if args[0] == "delete":
                 self.query = args[1]
                 self.result = self.delete(self.query)
@@ -1049,12 +1206,13 @@ class DbData:
             ["query", "default" if not hasattr(self, "query") else str(self.query)]]
 
         msg = "\n=========== "
-        if self.class_name == "select":
-            msg += "SELECT"
-        if self.class_name == "insert":
-            msg += "INSERT"
-        if self.class_name == "delete":
-            msg += "DELETE"
+        if hasattr(self, "class_name"):
+            if self.class_name == "select":
+                msg += "SELECT"
+            if self.class_name == "insert":
+                msg += "INSERT"
+            if self.class_name == "delete":
+                msg += "DELETE"
         msg += " object =============================\n"
         for item in repr_iter:
             msg += "\n" + item[0] + ": " + str(item[1])
@@ -1091,21 +1249,21 @@ class DbData:
                     debug_msg += "\n      - self. " + arg + " to " 
                     debug_msg += str(kwargs[arg])
                 logging.debug(debug_msg)
-        summary = "  summary:"
-        if hasattr(self, "query"):
-            summary += "\n                - query: " + self.query
-        else:
-            summary += "\n                - query: none."
-        if hasattr(self, "result"):
-            summary += "\n                - attributes: " + str(self.value_list)
-        else:
-            summary += "\n                - attributes: none."
-        if hasattr(self, "value_list"):
-            summary += "\n                - result: " + str(self.result)
-        else:
-            summary += "\n                - result: none."
-        summary += "\n                - status: " + str(self.status)
-        logging.debug(summary)
+            summary = "  summary:"
+            if hasattr(self, "query"):
+                summary += "\n" + " " * 16 + "- query: " + self.query
+            else:
+                summary += "\n" + " " * 16 + "- query: none."
+            if hasattr(self, "result"):
+                summary += "\n" + " " * 16 + "- attributes: " + str(self.value_list)
+            else:
+                summary += "\n" + " " * 16 + "- attributes: none."
+            if hasattr(self, "value_list"):
+                summary += "\n " + " " * 16 + "- result: " + str(self.result)
+            else:
+                summary += "\n" + " " * 16 + "- result: none."
+            summary += "\n" + " " * 16 + "- status: " + str(self.status)
+            logging.debug(summary)
         logging.info(info_msg)
 
     def log_return(self, ftn_name, **kwargs):
@@ -1264,7 +1422,9 @@ class DbData:
         logging.info("called DbData.get_entity")
         query = "SELECT id FROM " + ent.entity_type + " WHERE "
         query += "name=%s AND phone=%s;"
-        logging.debug("DbData.get_entity returning 'tuple': " + str((query, [ent.name, ent.phone], ent.entity_type)))
+        debug_msg = "DbData.get_entity returning 'tuple': "
+        debug_msg += str((query, [ent.name, ent.phone], ent.entity_type))
+        logging.debug(debug_msg)
         logging.info("completed DbData.")
         return (query, [ent.name, ent.phone], ent.entity_type)       
 
@@ -1289,7 +1449,9 @@ class Select(DbData):
           generated entities
         """
         super().__init__("select")
-        self.id = self.result if isinstance(self.result, int) and self.id > 0 else -1
+        self.id = -1
+        if isinstance(self.result, int) and self.id > 0:
+            self.id = self.result
         logging.info("completed Select.__init__")
 
     def get_entity_ids(self, entity_name):
@@ -1336,6 +1498,7 @@ class Select(DbData):
 
     def get_venue_shows(self, venue_id):
         """
+        get ids of shows where venue id matches specified param
         """
         self.log("call", "get_venue_shows", id=venue_id)
         self.query = "SELECT id FROM show WHERE venue_id=%s;"
@@ -1349,6 +1512,7 @@ class Select(DbData):
 
     def get_artist_shows(self, artist_id):
         """
+        get ids of shows where artist id matches specified param
         """
         self.log("call", "get_artist_shows", id=artist_id)
         self.query = "SELECT id FROM show WHERE artist_id=%s;"
@@ -1360,19 +1524,15 @@ class Select(DbData):
         self.log("out", "get_venue_shows")
         return alist
 
-    def count_shows(self, artist_id):
+    def count_total(self, entity_name):
         """
-        return # of shows already present in database for artist id
+        return total number of entity specified by entity_name in database
         """
-        self.log("call", "count_shows", id=artist_id)
-        self.query = "SELECT COUNT id FROM show WHERE id=%s;"
-        self.value_list = [artist_id]
-        result = self.get()
-        if not result is None and result > 0 :
-            self.result = result
-        self.log_return("count_shows", count=self.result)
-        self.log("out", "count_shows")
-        return self.result
+        self.log("call", "count_total")
+        self.query = "SELECT count(id) FROM " + entity_name + ";"
+        total = self.get()
+        self.log("out", "count_total")
+        return total
 
     def get_show_detail(self, show_id):
         """
@@ -1429,7 +1589,9 @@ class Insert(DbData):
           generated entities
         """
         entity.__repr__()
-        DbData.__init__(self, "insert", entity)
+        DbData.__init__(self, "insert", None)
+        self.ins_query(entity)
+        self.make()
         if not self.result is None and self.result > 0:
             self.id = self.result
         else:
@@ -1891,14 +2053,8 @@ class Show(DbData):
         """
         returns instance of Show object
         """
-        self.address = None
-        self.name = None
-        self.facebook_link = None
-        self.website_link = None
-        self.seeking_description = None
-        self.image_link = None
-        self.id = None
-        init_control = True
+        self.venue_id = -1
+        self.artist_id = -1
         self.entity_type = "show"
         self.all_day = False
         if not kwargs is None:
@@ -1931,27 +2087,45 @@ class Show(DbData):
             return msg
 
     def __iter__(self):
-        yield ("venue_id", self.venue_id)
-        yield ("artist_id", self.artist_id)
-        yield ("start_time", self.start_time)
-        yield ("end_time", self.end_time)
-        yield ("all_day", self.all_day)
+        if hasattr(self, "init_control") and self.init_control == True:
+            if hasattr(self, "venue_id"):
+                yield ("venue_id", self.venue_id)
+            if hasattr(self, "artist_id"):
+                yield ("artist_id", self.artist_id)
+            if hasattr(self, "start_time"):
+                yield ("start_time", self.start_time)
+            if hasattr(self, "end_time"):
+                yield ("end_time", self.end_time)
+            if hasattr(self, "all_day"):
+                yield ("all_day", self.all_day)
 
-    def log(self, log_type, ftn_name, *args):
+    def log(self, log_type, ftn_name, **kwargs):
         info_msg = "Show." + ftn_name
+        for arg in kwargs:
+            vals = ": "
+            if arg != "init_control":
+                vals += "\n" + (6*" ") + "- " + arg + ": "
+                vals += str(kwargs[arg])
         if log_type == "call":
             info_msg = "Called " + info_msg
-        if log_type == "init":
-            debug_msg = "init control is "
-            if len(args) >= 1:
-                debug_msg += str(args[0]) + " following " + ftn_name
-            logging.debug(debug_msg)
+            if len(kwargs.keys()) > 0:
+                debug_msg = "new values: " + str(kwargs)
+                logging.debug(debug_msg)
         if log_type == "out":
-            info_msg += " completed."
+            info_msg += " completed. "
+            if len(kwargs.keys()) > 0:
+                debug_msg = "new values: " + vals
+                logging.debug(debug_msg)
+        if "init_control" in kwargs.keys():
+                init_msg = "init control is "
+                init_msg += str(kwargs["init_control"]) + " following Show." 
+                init_msg += ftn_name
+                logging.debug(init_msg)
         logging.info(info_msg)
 
     def set_given_ids(self, kwargs):
         self.init_control = True
+        self.log("call", "set_given_ids")
         if "venue_id" in kwargs.keys():
             if isinstance(kwargs["venue_id"], int):
                 self.venue_id = kwargs['venue_id']
@@ -1971,36 +2145,59 @@ class Show(DbData):
                 self.init_type = "artist"
             else:
                 self.init_control = False
-        self.log("init", "set_given_ids", self.init_control)
+        self.log("out", 
+                    "set_given_ids", 
+                    init_control=self.init_control,
+                    venue_id=self.venue_id,
+                    artist_id=self.artist_id,
+                    init_type=self.init_type)
         return self.init_control
 
     def get_other_id(self):
         init_control = True
-        if hasattr(self, "city") and self.city is None:
-            return False
-        if self.init_type == "venue":
-            pair_id = None
-            if len(global_obj.model[self.city]["artist_ids"]) > 0:
-                pair_id = random.choice(global_obj.model[self.city]["artist_ids"])
-                self.artist_id = pair_id
-            if not isinstance(pair_id, int):
-                pair_id = Artist(self.city).id
-        elif self.init_type == "artist":
-            pair_id = None
-            if len(global_obj.model[self.city]["venue_ids"]) > 0:
-                pair_id = random.choice(global_obj.model[self.city]["venue_ids"])
-                self.venue_id = pair_id
-            if not isinstance(pair_id, int):
-                pair_id = Venue(self.city).id
-        elif self.init_type == "dual":
-            pair_id = 0
+        self.log("call",
+            "set_given_ids",
+            city = self.city,
+            artist_id = self.artist_id,
+            venue_id = self.venue_id,
+            init_type = self.init_type)
+        if not isinstance(self.city, str) or len(self.city) < 1:
+            init_control = False
+        if not self.init_type in ["venue", "artist"]:
+            init_control = False
         else:
-            init_control = False
-        if pair_id is None or not isinstance(pair_id, int):
-            init_control = False
-        if not isinstance(pair_id, int):
-            init_control = False
-        self.log("init", "get_other_id", self.init_control)
+            sel = "artist_ids" if self.init_type=="venue" else "venue_ids"
+        # select pair id
+        if init_control == True:
+            pair_id = None
+            if len(global_obj.locs[self.city][sel]) > 0:
+                pair_id = random.choice(global_obj.locs[self.city][sel])
+                if self.init_type == "artist":
+                    self.venue_id = pair_id
+                if self.init_type == "venue":
+                    self.artist_id = pair_id
+            else:
+                if self.init_type=="venue":
+                    ent = Artist(self.city)
+                    print("made venue ent " + ent.__repr__())
+                    if isinstance(ent.id, int) and ent.id > 0:
+                        self.artist_id = ent.id
+                        global_obj.append_artist(self.city, ent.id)
+                    else:
+                        init_control = False
+                if self.init_type=="artist":
+                    ent = Venue(self.city)
+                    if isinstance(ent.id, int) and ent.id > 0:
+                        self.venue_id = ent.id
+                        global_obj.append_venue(self.city, ent.id)
+                    else:
+                        init_control = False
+        self.log("out",
+            "get_other_id",
+            init_control=self.init_control,
+            venue_id=self.venue_id,
+            artist_id=self.artist_id,
+            init_type=self.init_type)
         return init_control
 
     def get_location(self):
@@ -2017,14 +2214,23 @@ class Show(DbData):
             self.city = location[0]
             self.state = location[1]
             success = True
-        self.log("init", "get_location", self.init_control)
+        self.log("out",
+            "get_location",
+            init_control=self.init_control,
+            location=location,
+            city=self.city,
+            state=self.state)
         return success
 
     def schedule(self):
+        """
+        """
         dates = RdDb.new_schedule_item()
         self.start_time = dates[0]
-        self.end_time = dates[0]
-        self.log("init", "schedule", self.init_control)
+        self.end_time = dates[1]
+        self.log("out",
+            "schedule",
+            init_control=self.init_control)
         return True
 
 # --- Genre entity object class -----------------------------------------------
@@ -2043,21 +2249,11 @@ class Genre(DbData):
             if isinstance(args[0], str):
                 self.name = args[0]
                 self.id = Insert(self).id
-            if isinstance(args[0], int):
-                self.copy()
         logging.info("completed Genre.__init__")
 
     def __iter__(self):
         yield ("name", self.name)
 
-    def copy(self, genre_id):
-        name = Select().get_genre(genre_id)
-        if not name is None:
-            self.name = name
-        self.id = genre_id
-
-global_obj = ThinData()
-
 if __name__=="__main__":
+    global_obj = ThinData()
     cli_ctl = CliCtl()
-    print(cli_ctl).__repr__()

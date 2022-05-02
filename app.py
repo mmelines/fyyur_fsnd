@@ -8,6 +8,7 @@ import babel
 from flask import Flask, render_template, request, Response, flash, redirect, url_for
 from flask_moment import Moment
 from flask_sqlalchemy import SQLAlchemy
+from flask_migrate import Migrate
 import logging
 from logging import Formatter, FileHandler
 from flask_wtf import Form
@@ -22,40 +23,114 @@ app.config.from_object('config')
 db = SQLAlchemy(app)
 
 # TODO: connect to a local postgresql database
+db.app = app
+db.init_app(app)
+migrate = Migrate(app, db)
+db.create_all()
 
 #----------------------------------------------------------------------------#
 # Models.
 #----------------------------------------------------------------------------#
 
 class Venue(db.Model):
-    __tablename__ = 'Venue'
+    __tablename__ = 'venue'
 
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String)
+    name = db.Column(db.String, unique=True)
     city = db.Column(db.String(120))
     state = db.Column(db.String(120))
-    address = db.Column(db.String(120))
-    phone = db.Column(db.String(120))
+    address = db.Column(db.String(120), unique=True)
+    phone = db.Column(db.String(120), unique=True)
     image_link = db.Column(db.String(500))
     facebook_link = db.Column(db.String(120))
+    genre_list = db.Column(db.String(500))
+    website_link = db.Column(db.String(120))
+    is_seeking = db.Column(db.Boolean())
+    seeking_description = db.Column(db.String(1040))
+    has_image = db.Column(db.Boolean())
+    shows = db.relationship('Show', backref='venue_show', lazy=True)
+    genres = db.relationship('VenueGenre', backref="venue_genre", lazy=True)
 
-    # TODO: implement any missing fields, as a database migration using Flask-Migrate
+    def __iter__(self):
+        yield ("id", self.id)
+        yield ("name", self.name)
+        yield ("city", self.city)
+        yield ("state", self.state)
+        yield ("address", self.address)
+        yield ("phone", self.phone)
+        yield ("image_link", self.image_link)
+        yield ("has_image", self.has_image)
+        yield ("facebook_link", self.facebook_link)
+        yield ("website_link", self.website_link)
+
+    def __repr__(self):
+        for item in self:
+            print(item[0] + ": " + str(item[1]))
+        msg = "venue: " + self.name + " (id " + str(self.id) + ")"
+        return msg
 
 class Artist(db.Model):
-    __tablename__ = 'Artist'
+    __tablename__ = 'artist'
 
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String)
+    name = db.Column(db.String, unique=True)
     city = db.Column(db.String(120))
     state = db.Column(db.String(120))
-    phone = db.Column(db.String(120))
+    phone = db.Column(db.String(120), unique=True)
     genres = db.Column(db.String(120))
     image_link = db.Column(db.String(500))
     facebook_link = db.Column(db.String(120))
+    genre_list = db.Column(db.String(500))
+    is_seeking = db.Column(db.Boolean())
+    website_link = db.Column(db.String(120))
+    seeking_description = db.Column(db.String(1040))
+    has_image = db.Column(db.Boolean())
+    shows = db.relationship('Show', backref='artist_show', lazy=True)
+    genres = db.relationship('ArtistGenre', backref="artist_show", lazy=True)
 
-    # TODO: implement any missing fields, as a database migration using Flask-Migrate
+    def __iter__(self):
+        yield ("id", self.id)
+        yield ("name", self.name)
+        yield ("city", self.city)
+        yield ("state", self.state)
+        yield ("phone", self.phone)
+        yield ("image_link", self.image_link)
+        yield ("has_image", self.has_image)
+        yield ("facebook_link", self.facebook_link)
+        yield ("website_link", self.website_link)
 
-# TODO Implement Show and Artist models, and complete all model relationships and properties, as a database migration.
+class Show(db.Model):
+    __tablename__ = "show"
+
+    id = db.Column(db.Integer, primary_key=True)
+    venue_id = db.Column(db.Integer, db.ForeignKey('venue.id'), nullable=False)
+    artist_id = db.Column(db.Integer, db.ForeignKey('artist.id'), nullable=False)
+    start_time = db.Column(db.DateTime, nullable=False)
+    end_time = db.Column(db.DateTime, nullable=False)
+    all_day = db.Column(db.Boolean)
+
+class ArtistGenre(db.Model):
+    __tablename__ = "artist_genres"
+
+    id = db.Column(db.Integer, primary_key=True)
+    artist_id = db.Column(db.Integer, db.ForeignKey('artist.id'))
+    genre_id = db.Column(db.Integer, db.ForeignKey('genre.id'))
+
+class VenueGenre(db.Model):
+    __tablename__ = "venue_genres"
+
+    id = db.Column(db.Integer, primary_key=True)
+    venue_id = db.Column(db.Integer, db.ForeignKey('venue.id'))
+    genre_id = db.Column(db.Integer, db.ForeignKey('genre.id'))
+
+class Genre(db.Model):
+    __tablename__ = "genre"
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String, unique=True)
+    # relationships
+    artists = db.relationship('ArtistGenre', backref='genre_artist', lazy=True)
+    genres = db.relationship('VenueGenre', backref='genre_venue', lazy=True)
 
 #----------------------------------------------------------------------------#
 # Filters.
