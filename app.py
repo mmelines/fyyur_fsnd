@@ -51,24 +51,6 @@ class Venue(db.Model):
     shows = db.relationship('Show', backref='venue_show', lazy=True)
     genres = db.relationship('VenueGenre', backref="venue_genre", lazy=True)
 
-    def __iter__(self):
-        yield ("id", self.id)
-        yield ("name", self.name)
-        yield ("city", self.city)
-        yield ("state", self.state)
-        yield ("address", self.address)
-        yield ("phone", self.phone)
-        yield ("image_link", self.image_link)
-        yield ("has_image", self.has_image)
-        yield ("facebook_link", self.facebook_link)
-        yield ("website_link", self.website_link)
-
-    def __repr__(self):
-        for item in self:
-            print(item[0] + ": " + str(item[1]))
-        msg = "venue: " + self.name + " (id " + str(self.id) + ")"
-        return msg
-
 class Artist(db.Model):
     __tablename__ = 'artist'
 
@@ -80,24 +62,12 @@ class Artist(db.Model):
     genres = db.Column(db.String(120))
     image_link = db.Column(db.String(500))
     facebook_link = db.Column(db.String(120))
-    genre_list = db.Column(db.String(500))
     is_seeking = db.Column(db.Boolean())
     website_link = db.Column(db.String(120))
     seeking_description = db.Column(db.String(1040))
     has_image = db.Column(db.Boolean())
     shows = db.relationship('Show', backref='artist_show', lazy=True)
     genres = db.relationship('ArtistGenre', backref="artist_show", lazy=True)
-
-    def __iter__(self):
-        yield ("id", self.id)
-        yield ("name", self.name)
-        yield ("city", self.city)
-        yield ("state", self.state)
-        yield ("phone", self.phone)
-        yield ("image_link", self.image_link)
-        yield ("has_image", self.has_image)
-        yield ("facebook_link", self.facebook_link)
-        yield ("website_link", self.website_link)
 
 class Show(db.Model):
     __tablename__ = "show"
@@ -150,7 +120,7 @@ app.jinja_env.filters['datetime'] = format_datetime
 # Useful functions.
 #----------------------------------------------------------------------------#
 
-def sort_by_area(results, entity_type, routes):
+def sort_by_area(results, entity_type):
   """
   return object with search results seperated by city and state
   takes two parameters as input:
@@ -163,7 +133,7 @@ def sort_by_area(results, entity_type, routes):
   - values: dict with the following keys
       - obj[<area>]["city"] - city name
       - obj[<area>]["state"] - state name
-      - obj[<city>, <state>]["artists"] || [<city>, <state>]["venues"]- 
+      - obj[<city>, <state>]["artists"] || [<city>, <state>]["venues"]
   """
   areas = {}
   for result in results:
@@ -187,18 +157,23 @@ def sort_by_area(results, entity_type, routes):
 def index():
   return render_template('pages/home.html')
 
-
 #  Venues
 #  ----------------------------------------------------------------
 
 @app.route('/venues')
 def venues():
   """
+  """
+  data = Venue.query.all()
+  return render_template('pages/venues.html', data=data)
+
+@app.route('/local_venues')
+def local_venues():
+  """
   returns list of venues
   """
-  route = ("/venues", "venues()")
-  data = sort_by_area(Venue.query.all(), "venues", "/venues")
-  return render_template('pages/venues.html', areas=data);
+  data = sort_by_area(Venue.query.all(), "venues")
+  return render_template('pages/area_venues.html', areas=data);
 
 @app.route('/venues/search', methods=['POST'])
 def search_venues():
@@ -332,18 +307,16 @@ def delete_venue(venue_id):
 #  ----------------------------------------------------------------
 @app.route('/artists')
 def artists():
-  # TODO: replace with real data returned from querying the database
-  data=[{
-    "id": 4,
-    "name": "Guns N Petals",
-  }, {
-    "id": 5,
-    "name": "Matt Quevedo",
-  }, {
-    "id": 6,
-    "name": "The Wild Sax Band",
-  }]
-  return render_template('pages/artists.html', artists=data)
+  data = Artist.query.all()
+  return render_template('pages/artists.html', data=data)
+
+@app.route('/local_artists')
+def local_artists():
+  """
+  returns list of artists
+  """
+  data = sort_by_area(Artist.query.all(), "artists")
+  return render_template('pages/artists.html', areas=data)
 
 @app.route('/artists/search', methods=['POST'])
 def search_artists():
