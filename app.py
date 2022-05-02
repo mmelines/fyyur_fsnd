@@ -157,14 +157,13 @@ def sort_by_area(results, entity_type, routes):
   - results (sqlalchemy search result of all Artists or Venues)
   - entity_type: specifies artist or venue search (string. "artists" if result
       is artist type and "venues" if result is venue type)
-  - routes: string of url ending. Used for logging purposes.
   returns a (nested) dict object with the following format:
   - keys "<area>": stored in the format "<city>, <state>". String variable name 
       is area in documentation and code.
   - values: dict with the following keys
       - obj[<area>]["city"] - city name
       - obj[<area>]["state"] - state name
-      - obj[<area>]["artists"] || [<city>, <state>]["venues"]- 
+      - obj[<city>, <state>]["artists"] || [<city>, <state>]["venues"]- 
   """
   areas = {}
   for result in results:
@@ -178,15 +177,6 @@ def sort_by_area(results, entity_type, routes):
   area_list = []
   for area in areas:
     area_list.append(areas[area])
-  # define logging msg
-  logging_msg = " >> sort_by_area will return obj "
-  # logging info and debug output
-  logging.info("called sort_by_area via " + str(routes))
-  logging.debug(logging_msg + str(areas))
-  # terminal debug output
-  if terminal_logging == True and utility_terminal_logging == True:
-    print(logging_msg)
-    pprint.pprint(areas)
   return area_list
 
 #----------------------------------------------------------------------------#
@@ -207,16 +197,7 @@ def venues():
   returns list of venues
   """
   route = ("/venues", "venues()")
-  data = sort_by_area(Venue.query.all(), "venues")
-  # define logging msg
-  logging_msg = " >> venues() calling render_template with areas: "
-  # logging info and debug output
-  logging.info("hit venues()")
-  logging.debug(logging_msg + str(areas))
-  # terminal debug output
-  if terminal_logging == True and route_terminal_logging == True:
-    print(logging_msg)
-    pprint(data)
+  data = sort_by_area(Venue.query.all(), "venues", "/venues")
   return render_template('pages/venues.html', areas=data);
 
 @app.route('/venues/search', methods=['POST'])
