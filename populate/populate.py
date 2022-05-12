@@ -348,7 +348,8 @@ class RdDb:
         return dictionary of location information
         accepts one parameter:
          - location name: either a name of a city that is also a key in the 
-            RdDb.location_names and -1
+            RdDb.location_names or -1 if one is not specified
+        returns an object containing city, area_code, state and zip_code
         """
         if location_name in RdDb.location_names or location_name == -1:
             if location_name == -1:
@@ -368,7 +369,7 @@ class RdDb:
     @staticmethod
     def new_phone(area_code):
         """
-        return phone number formatted as a string
+        returns phone number formatted as a string
         """
         phone = "(" + str(area_code) + ")"
         phone = phone + str(random.choice(range(101, 999))) + "-"
@@ -380,7 +381,7 @@ class RdDb:
     @staticmethod
     def new_address():
         """
-        generate random specific street address
+        generates random specific street address
         """
         street = random.choice(RdDb.names["street_names"])
         street_end = random.choice(RdDb.names["street_ends"])
@@ -449,21 +450,13 @@ class RdDb:
         logging.info("RdDb.uris completed")
         return (facebook_link, website_link)
 
-    @classmethod
-    def update_loc(self):
-        """
-        """
-        sel = Select()
-        for loc in RdDb.location_names:
-            location_ids = Select().loc_search(loc)
-            RdDb.locations[loc]["venue_ids"] = location_ids[0]
-            RdDb.locations[loc]["artist_ids"] = location_ids[1]
-        logging.debug("RdDb. returning None (only option)")
-        logging.info("RdDb.update_loc completed")
-
     @staticmethod
     def new_schedule_item():
-        # get current time
+        """
+        selects a random date incl starting time and end time
+          based on a randomly selected show duration
+        returns a tuple containing two datetimes
+        """
         nowobj = datetime.datetime.now()
         future_date = random.choice([False, True, True])
         if future_date:
@@ -507,6 +500,9 @@ class ThinData:
         logging.info("completed RdDb __init__")
 
     def log(self, log_type, ftn_name, **kwargs):
+        """
+        forms a string to log a message for ThinData function
+        """
         info_msg = "Thindata." + ftn_name
         if log_type == "call":
             info_msg = "called " + info_msg
@@ -523,10 +519,16 @@ class ThinData:
                  debug_msg += "\nUpdated model to include "
                  debug_msg += kwargs["entity_string"] 
             logging.debug(debug_msg)
+        if log_type == "err":
+            err_msg = info_msg + " failed with error code "
+            err_msg += str(kwargs["error_code"])
         logging.info(info_msg)
 
     def blank_singleton(self):
         """
+        creates a blank, standardized object for each location in 
+            RdDb.location names and adds it to and self.locs[<location>]
+        returns the updated model
         """
         model = {"artists": [],
                     "shows": [],
@@ -551,7 +553,7 @@ class ThinData:
         """
         def log_singleton(function, *args):
             """
-            logging functions for RdDb.append_existing
+            creates logging messages for the log_singleton() function
             """
             if function == "call":
                 msg = "called RdDb.append_existing()"
@@ -588,10 +590,6 @@ class ThinData:
         log_singleton("summarize", self.venue_ids, self.artist_ids)
         return self.model
 
-    def transfer_locs(self):
-        for location in RdDb.location_names:
-            self.locs[location] = self.model[location]
-
     def __repr__(self):
         """
         represent data in RdDb class instance
@@ -607,20 +605,18 @@ class ThinData:
 
     def self_populate(self, retain_blank):
         """
+        finds existing records for artist, venue and show ids and
+          adds their IDs to the global model
         """
         if retain_blank == False:
             self.artist_ids = Select().get_entity_ids("artist")
             self.venue_ids = Select().get_entity_ids("venue")
             self.show_ids = Select().get_entity_ids("show")
             self.model = self.append_existing()
-        print("****MODEL" + "*"*30)
-        pprint(self.model)
-        print("****LOCS" + "*"*30)
-        pprint(self.locs)
 
     def append_venue(self, extant, loc, v_id):
         """
-        add venue id (v_id)
+        add venue id (v_id) to global object
         """
         obj = {"type": "venue",
                 "loc": loc,
@@ -637,7 +633,7 @@ class ThinData:
 
     def append_artist(self, extant, loc, a_id):
         """
-        add artist id (a_id)
+        add artist id (a_id) to global object
         """
         obj = {"type": "artist",
                 "loc": loc,
@@ -654,7 +650,8 @@ class ThinData:
 
     def append_global_id(self, obj):
         """
-
+        add entity id (obj input variable) to appropriate global locations
+        in the global object
         """
         success = False
         if obj["type"] == "venue":
@@ -671,17 +668,19 @@ class ThinData:
                 dest.append(obj["id"])
                 success = True
             except:
-                print("1")
-        if obj["id"] not in ext_dest and obj["ext"] == True:
+                self.log("append_global_id", "err", error_code=1)
+        if obj["id"] not in ext_dest and obj["extant"] == True:
             try:
                 ext_dest.append(obj["id"])
                 success = True
             except:
-                print("2")
+                self.log("append_global_id", "err", error_code=2)
         return success
 
     def append_local_id(self, obj):
         """
+        add entity id (obj input variable) to appropriate local locations
+        (nested objects named by location) in the global object
         """
         success = False
         if obj["type"] == "venue":
@@ -696,11 +695,13 @@ class ThinData:
                 self.locs[obj["loc"]] = self.model[obj["loc"]]
                 success = True
             except:
-                print("1")
+                self.log("append_global_id", "err", error_code=3)
         return success
 
     def append_local_id_object(self, obj):
         """
+        add entity as object to appropriate local locations (nested objects 
+        named by location) in the global object
         """
         success = False
         if obj["type"] == "venue":
@@ -714,7 +715,7 @@ class ThinData:
                     self.locs[obj["loc"]]
                     success = True
                 except:
-                    print("5")
+                    self.log("append_local_id_object", "err", error_code=5)
         if obj["type"] == "show":
             show_additions = 0
             dest1 = self.model[obj["loc"]]["venues"]
@@ -722,19 +723,20 @@ class ThinData:
                 dest[obj["id"]]["shows"].append(obj["id"])
                 show_additions += 1
             except:
-                print("6")
+                self.log("append_local_id_object", "err", error_code=6)
             dest2 = self.model[obj["loc"]]["artists"]
             try:
                 dest[obj["id"]]["shows"].append(obj["id"])
                 show_additions += 1
             except:
-                print("7")
+                self.log("append_local_id_object", "err", error_code=7)
             if show_additions == 2:
                 success == True
         return success
 
     def append_show_id_lists(self, obj):
         """
+        ensure show ids from artist and venue selects are added to show lists
         """
         def append_show(show_id, local_list, global_list):
             if not show_id in local_list:
@@ -748,7 +750,6 @@ class ThinData:
         if obj["type"] == "venue":
             show_sublist = Select().get_venue_shows(obj["id"])
         local_list = self.model[obj["loc"]]["shows"]["ids"]
-        print(show_sublist)
         try:
             if not show_sublist is None and isinstance(show_sublist, list):
                 for show_id in show_sublist:
@@ -756,7 +757,7 @@ class ThinData:
             self.locs[obj["loc"]]["shows"]["ids"] = local_list
             success = True
         except:
-            print("8")
+            self.log("", "err", error_code=8)
         return success
 
     def append_show(self, extant, loc, s_id):
@@ -769,12 +770,12 @@ class ThinData:
         try:
             a_dest = self.model[obj["loc"]]["artists"][obj["artist"]]
         except:
-            print("10")
+            self.log("", "err", error_code=10)
             placement = False
         try:
             v_dest = self.model[obj["loc"]]["venues"][obj["venue"]]
         except:
-            print("11")
+            self.log("append_show", "err", error_code=11)
             placement = False
         if placement == True:
             try:
@@ -783,7 +784,7 @@ class ThinData:
                 a_dest[obj["show_id"]] = obj
                 success = True
             except:
-                print("12")
+                self.log("append_show", "err", error_code=12)
                 success = False
             try:
                 v_dest["shows"].append(obj["show_id"])
@@ -791,7 +792,7 @@ class ThinData:
                 v_dest[obj["show_id"]] = obj
                 success = True
             except:
-                print("13")
+                self.log("append_show", "err", error_code=13)
                 success = False
         return success
 
@@ -857,6 +858,9 @@ class CliCtl:
         logging.info("completed .__init__")
 
     def __repr__():
+        """
+        create string representation of CliCtl instance
+        """
         msg = "CLI CTL\n" + str(self.ent)
         msg += "*"*20
         msg += "\n\n***\nnew genres: " + str(self.new_genres)
@@ -867,12 +871,17 @@ class CliCtl:
 
     def log(self, log_type, ftn_name, **kwargs):
         """
+        creates log messages for CliCtl instance
         """
         info_msg = "CliCtl." + ftn_name
         if log_type == "call":
             info_msg = "called " + info_msg
         if log_type == "out":
             info_msg += " completed"
+        if log_type == "err": 
+            info_msg = info_msg + " failed with code "
+            info_msg += str(kwargs["error_code"])
+        logging.info(info_msg)
 
     @staticmethod
     def valid_int(int_floor, int_ceil, is_show):
@@ -953,7 +962,6 @@ class CliCtl:
         diplays cli input menu to get number of entities to create
         """
         logging.info("called CliCtl.entity_prompt")
-        ## TODO: Get existing number of artist, show, and venue entities
         prompt = "\nEnter number of %s entities to create now:\n(%s already"
         prompt += " exist)"
         confirm_zero = "\nNo new %ss will be created"
@@ -998,6 +1006,7 @@ class CliCtl:
             backup_count = 0
             success = False
             while new_entities < goal and backup_count < goal * 5:
+                print("tried")
                 ent = None
                 if ent_type == "artist":
                     ent = self.make_artist()
@@ -1018,30 +1027,36 @@ class CliCtl:
         msg += ", " + str(entities[2]) + " Show entities."
         print(msg)
         loop_control = True
+        print(loop_control)
         if entities[0] > 0:
             loop_control = match_count(entities[0], "artist")
+            print(loop_control)
             entities[0] == loop_control
         if entities[1] > 0 and loop_control == True:
             loop_control = match_count(entities[1], "venue")
+            print(loop_control)
             entities[1] == loop_control
         if entities[2] > 0 and loop_control:
             loop_control == self.make_all_shows(entities[2])
+            print(loop_control)
             entities[2] == loop_control
         logging.debug("CliCtl.gen_entities returning None (default)")
         logging.info("CliCtl.gen_entities completed")
 
     def make_artist(self):
         ent = Artist()
+        print(ent.__repr__)
         if isinstance(ent.id, int) and ent.id > 0:
+            print("tried")
             status = global_obj.append_artist(False, ent.city, ent.id)
             if status == True:
                 self.new_artists += 1
                 self.new_values.append(ent)
             else:
-                print("14")
+                self.log("make_artist", "err", error_code=14)
                 ent = None
         else:
-            print("15")
+            self.log("make_artist", "err", error_code=16)
             ent = None
         return ent
 
@@ -1053,10 +1068,10 @@ class CliCtl:
                 self.new_venues += 1
                 self.new_values.append(ent)
             else:
-                print("16")
+                self.log("make_venue", "err", error_code=17)
                 ent = None
         else:
-            print('17')
+            self.log("make_venue", "err", error_code=18)
             ent = None
         return ent
 
@@ -1067,7 +1082,7 @@ class CliCtl:
             if source_type == "venue":
                 ent = Show(venue_id=source_id)
         else:
-            print('20')
+            self.log("make_show", "err", error_code=1)
             ent = None
         if isinstance(show.id, int and ent.id > 0):
             status = global_obj.append_show(False, ent.city, ent.id)
@@ -1075,17 +1090,20 @@ class CliCtl:
                 self.new_shows += 1
                 self.new_values.append(ent)
             else:
-                print("18")
+                self.log("make_shows", "err", error_code=19)
                 ent = None
         else:
-            print('19')
+            self.log("make_shows", "err", error_code=20)
             ent = None
         return ent
 
     def make_shows(self, obj):
+        """
+        create not-very-random number of shows based on select for either
+        artist or venue entity; called from CliCtl.make_all_shows
+        """
         show_counter = 0
         backup_counter = 0
-        print(obj)
         msg = " shows for " + obj["source"] + " # " + str(obj["source_id"])
         while show_counter < obj["goal"] and backup_counter < obj["goal"]*5:
             if obj["source"] == "artist":
@@ -1095,7 +1113,6 @@ class CliCtl:
             if isinstance(ent.id, int) and ent.id > 0:
                 show_counter += 1
             backup_counter += 1
-        print("  * created " + str(show_counter) + msg)
         if show_counter == obj["goal"]:
             return show_counter
         else:
@@ -1103,6 +1120,8 @@ class CliCtl:
 
     def make_all_shows(self, amount):
         """
+        create slightly randomized number of shows for all existing artist
+        and venue entities
         """
         if amount < 3:
             amount = 3
@@ -1114,11 +1133,9 @@ class CliCtl:
         for v_id in global_obj.model["venues"]:
             s_list.append([v_id, "venue", len(Select().get_venue_shows(v_id))])
         for item in s_list:
-            print("item: " + str(item))
             obj = {"source": item[1],
                     "source_id": item[0],
                     "goal": random.choice(range(amount, amount+5)) - item[2]}
-            print("obj: " + str(obj))
             result = self.make_shows(obj)
             if result is None:
                 failures.append(obj)
@@ -1127,6 +1144,9 @@ class CliCtl:
         return [total_shows, failures]
 
     def decide_amount(self, amount):
+        """
+        decide the amount of shows that will actually be created for an entity
+        """
         amount_top = amount + 4
         if (amount - 4) < 3:
             amount_bottom = 3
@@ -1138,6 +1158,7 @@ class CliCtl:
     @staticmethod
     def clear_db():
         """
+        delete every existing record from the database
         """
         successes = 0
         for entity in ["show", "artist", "venue", "genre"]:
@@ -1147,6 +1168,10 @@ class CliCtl:
                 successes += 1
 
     def commit_genres(self):
+        """
+        commit list of existing genres to the database if they aren't already
+        in the database
+        """
         genre_count = Select().count_total("genre")[0]
         self.log("call", "commit_genres")
         if genre_count < len(RdDb.genre_list):
@@ -1187,6 +1212,7 @@ class DbData:
 
     def __init__(self, *args):
         """
+        init instance of DbData class
         """
         self.class_name = args[0]
         self.active = False # boolean if 
@@ -1204,18 +1230,21 @@ class DbData:
 
     def err(self, err, exc_info, msg):
         """
+        detailed error log for DbData class and its descendents
         """
         self.status = -1
         self.error = {"info": exc_info[1],
                     "msg": msg}
         if not err is None:
             self.error["psycopg2_error"] = '{}'.format(err)
-        print(self.error)
         logging.error(self.error)
         self.result = False
         return err
 
     def delete(self, query):
+        """
+        Delete all records in a specified table
+        """
         self.query = query
         self.log("call", "delete")
         self.query = query
@@ -1242,6 +1271,10 @@ class DbData:
             return self.result
    
     def __repr__(self):
+        """
+        form string representation of DbData instance
+        """
+        # TODO: make lines of code shorter
         repr_iter = [
             ["active", "default" if not hasattr(self, "active") else str(self.active)],
             ["error", "default" if not hasattr(self, "error") else str(self.error)],
@@ -1269,10 +1302,12 @@ class DbData:
 
     def log(self, log_type, ftn_name, **kwargs):
         """
+        form log message for functions in DbData
         accepts args in [logging_type, ftn_name, class_name]
          - log_type: can be "call", "output" or None type
          - ftn_name: name of class function from which log was called
          - kwargs: lists objects updated or returned by function
+        logs via python logging library
         """
         # set class_name
         if hasattr(self, "class_name"):
@@ -1301,7 +1336,8 @@ class DbData:
             else:
                 summary += "\n" + " " * 16 + "- query: none."
             if hasattr(self, "result"):
-                summary += "\n" + " " * 16 + "- attributes: " + str(self.value_list)
+                summary += "\n" + " " * 16 + "- attributes: "
+                summary += str(self.value_list)
             else:
                 summary += "\n" + " " * 16 + "- attributes: none."
             if hasattr(self, "value_list"):
@@ -1452,6 +1488,9 @@ class DbData:
 
     @staticmethod
     def cln_str(attr_list):
+        """
+        clean attribute string, removing ' and "
+        """
         i = 0
         while i < len(attr_list):
             if (str(type(attr_list)) == "<class 'str'>"):
@@ -1477,15 +1516,6 @@ class DbData:
 class Select(DbData):
     """
     functions and methods for db selects
-            active
-            error
-            status
-            result
-            res_list
-            value_list
-            class_name
-            query
-            id
     """
 
     def __init__(self):
@@ -1502,6 +1532,7 @@ class Select(DbData):
 
     def get_entity_ids(self, entity_name):
         """
+        get list of entity ids from a specifed entity
         """
         self.log("call", "get_entity_ids")
         self.query = 'SELECT id FROM "' + entity_name + '";'
@@ -1529,7 +1560,8 @@ class Select(DbData):
 
     def get_location(self, entity_name, ent_id):
         """
-        returns location string for venue or artist id if it is a default location
+        returns location string for venue or artist id if it is a default 
+            location
         """
         self.log("call", "get_location", name=entity_name, id=ent_id)
         self.query = "SELECT city, state FROM " + entity_name + " WHERE id=%s;"
@@ -1582,7 +1614,7 @@ class Select(DbData):
 
     def get_show_detail(self, show_id):
         """
-
+        get additional information for a show with a specified id
         """
         self.log("call", "get_show_detail", show_id=show_id)
         self.query = "SELECT venue_id, artist_id, start_time, end_time FROM "
@@ -1592,6 +1624,9 @@ class Select(DbData):
         return result
 
     def verify_genre(self, genre_name):
+        """
+        get name of specified name from genres
+        """
         self.log("call", "verify_genre")
         self.query = "SELECT id FROM genre WHERE name=%s;"
         self.value_list = [genre_name]
@@ -1602,7 +1637,7 @@ class Select(DbData):
 
     def get_genre(self, genre_id):
         """
-        get name of genre from genre table
+        get name of genre with specified id from genres 
         """
         self.log("call", "get_genre")
         self.query = "SELECT name FROM genre WHERE id=%s;"
@@ -1669,6 +1704,9 @@ class Entity:
         logging.info("completed Entity.__init__")
 
     def log(self, log_type, ftn_name, **kwargs):
+        """
+        form log for functions in Entity class and its descendants
+        """
         msg = self.entity_type[0].upper() + self.entity_type[1:] + "."
         msg += ftn_name + " "
         if log_type == "call":
@@ -1918,6 +1956,7 @@ class Venue(Entity, DbData):
         """
         Display attributes generated for Venue object
         """
+        # TODO: make shorter
         repr_iter = [["city", 
             "none." if not hasattr(self, "city") else str(self.city)],
         ["state", 
@@ -2225,7 +2264,6 @@ class Show(DbData):
             else:
                 if self.init_type=="venue":
                     ent = Artist(self.city)
-                    print("made venue ent " + ent.__repr__())
                     if isinstance(ent.id, int) and ent.id > 0:
                         self.artist_id = ent.id
                         global_obj.append_artist(False, self.city, ent.id)
