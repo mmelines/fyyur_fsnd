@@ -59,7 +59,7 @@ class Artist(db.Model):
     city = db.Column(db.String(120))
     state = db.Column(db.String(120))
     phone = db.Column(db.String(120), unique=True)
-    genres = db.Column(db.String(120))
+    genre_list = db.Column(db.String(500))
     image_link = db.Column(db.String(500))
     facebook_link = db.Column(db.String(120))
     is_seeking = db.Column(db.Boolean())
@@ -128,8 +128,7 @@ def sort_by_area(results, entity_type):
   - entity_type: specifies artist or venue search (string. "artists" if result
       is artist type and "venues" if result is venue type)
   returns a (nested) dict object with the following format:
-  - keys "<area>": stored in the format "<city>, <state>". String variable name 
-      is area in documentation and code.
+  - keys "<area>": stored in the format "<city>, <state>".
   - values: dict with the following keys
       - obj[<area>]["city"] - city name
       - obj[<area>]["state"] - state name
@@ -163,6 +162,7 @@ def index():
 @app.route('/venues')
 def venues():
   """
+  returns list of all venues
   """
   data = Venue.query.all()
   return render_template('pages/venues.html', data=data)
@@ -170,30 +170,25 @@ def venues():
 @app.route('/local_venues')
 def local_venues():
   """
-  returns list of venues
+  returns list of venues, sorted by area
   """
   data = sort_by_area(Venue.query.all(), "venues")
   return render_template('pages/area_venues.html', areas=data);
 
 @app.route('/venues/search', methods=['POST'])
 def search_venues():
-  # TODO: implement search on artists with partial string search. Ensure it is case-insensitive.
-  # seach for Hop should return "The Musical Hop".
-  # search for "Music" should return "The Musical Hop" and "Park Square Live Music & Coffee"
-  response={
-    "count": 1,
-    "data": [{
-      "id": 2,
-      "name": "The Dueling Pianos Bar",
-      "num_upcoming_shows": 0,
-    }]
-  }
-  return render_template('pages/search_venues.html', results=response, search_term=request.form.get('search_term', ''))
+  """
+  """
+  search_term = request.form.get('search_term').strip()
+  result = Artist.query.filter(Artist.name.ilike('%'+search_term+'%')).all()
+  data = {"search_term": search_term,
+            "result": result}
+  return render_template('pages/search_venues.html', data=data)
 
 @app.route('/venues/<int:venue_id>')
 def show_venue(venue_id):
-  # shows the venue page with the given venue_id
-  # TODO: replace with real venue data from the venues table, using venue_id
+  """
+  """
   data1={
     "id": 1,
     "name": "The Musical Hop",
@@ -307,22 +302,24 @@ def delete_venue(venue_id):
 #  ----------------------------------------------------------------
 @app.route('/artists')
 def artists():
+  """
+  returns a list of all artists
+  """
   data = Artist.query.all()
   return render_template('pages/artists.html', data=data)
 
 @app.route('/local_artists')
 def local_artists():
   """
-  returns list of artists
+  returns list of artists sorted by geographic location
   """
   data = sort_by_area(Artist.query.all(), "artists")
   return render_template('pages/artists.html', areas=data)
 
 @app.route('/artists/search', methods=['POST'])
 def search_artists():
-  # TODO: implement search on artists with partial string search. Ensure it is case-insensitive.
-  # seach for "A" should return "Guns N Petals", "Matt Quevado", and "The Wild Sax Band".
-  # search for "band" should return "The Wild Sax Band".
+  """
+  """
   response={
     "count": 1,
     "data": [{
