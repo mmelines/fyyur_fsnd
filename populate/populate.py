@@ -828,10 +828,10 @@ class ThinData:
             if result == False or result == -1:
                 new_genre = Genre(genre_name)
                 self.genre_ids.append(new_genre.id)
-                self.genres.append(new_genre.name)
+                self.genres[genre_name] = new_genre.id
                 self.log("out", "new_genre", add=genre_name)
             else:
-                 self.log("out", "new_genre", find=genre_name)
+                self.log("out", "new_genre", find=genre_name)
 
 #  ----------------------------------------------------------------------------
 # / Command Line Control
@@ -1759,6 +1759,8 @@ class Artist(Entity, DbData):
         insert_obj = Insert(self)
         self.id = insert_obj.id
         logging.info("completed Artist.__init__")
+        if isinstance(self.id, int) and self.id > 0:
+            self.relate_genres()
 
     def __repr__(self):
         """
@@ -1913,6 +1915,10 @@ class Artist(Entity, DbData):
         logging.debug("Artist.new_image_link completed")
         return random.choice(RdDb.artist_images)
 
+    def relate_genres(self):
+        for genre in self.genre_list:
+            rel_id = ArtistGenre(global_obj.genres[genre], self.id)
+
 # --- Venue entity object class -----------------------------------------------
 
 class Venue(Entity, DbData):
@@ -1950,6 +1956,8 @@ class Venue(Entity, DbData):
         self.image_link = self.new_image_link()
         insert_obj = Insert(self)
         self.id = insert_obj.id
+        if isinstance(self.id, int) and self.id > 0:
+            self.relate_genres()
         logging.debug("called Venue.__init__")
 
     def __repr__(self):
@@ -2124,6 +2132,10 @@ class Venue(Entity, DbData):
         """
         logging.info("called Venue.new_image_link")
         return random.choice(RdDb.venue_images)
+
+    def relate_genres(self):
+        for genre in self.genre_list:
+            rel_id = VenueGenre(global_obj.genres[genre], self.id)
 
 # --- Show entity object class ------------------------------------------------
 
@@ -2321,7 +2333,7 @@ class Show(DbData):
 
 class Genre(DbData):
     """
-    stores variables and functions to keep Genre function updated
+    stores variables and functions to store various genre names
     """
 
     def __init__(self, *args):
@@ -2337,6 +2349,38 @@ class Genre(DbData):
 
     def __iter__(self):
         yield ("name", self.name)
+
+class ArtistGenre(DbData):
+    """
+    instance of ArtistGenre class; relates artist_id and genre_id in record
+    """
+
+    def __init__(self, genre_id, artist_id):
+        """
+        """
+        self.entity_type = "artist_genres"
+        self.artist_id = artist_id
+        self.genre_id = genre_id
+        self.id = Insert(self).id
+
+    def __iter__(self):
+        yield("artist_id", self.artist_id)
+        yield("genre_id", self.genre_id)
+
+class VenueGenre(DbData):
+    """
+    instance of ArtistGenre class; relates artist_id and venue_id in record
+    """
+
+    def __init__(self, genre_id, venue_id):
+        self.entity_type = "venue_genres"
+        self.venue_id = venue_id
+        self.genre_id = genre_id
+        self.id = Insert(self).id
+
+    def __iter__(self):
+        yield("venue_id", self.venue_id)
+        yield("genre_id", self.genre_id)
 
 if __name__=="__main__":
     global_obj = ThinData()
