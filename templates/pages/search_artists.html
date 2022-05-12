@@ -1,10 +1,10 @@
 {% extends 'layouts/main.html' %}
 {% block title %}Fyyur | Artists Search{% endblock %}
 {% block content %}
-{% if data.results|length > 0 %}
-	<h3>{{ data.results|length }} results found for "{{ data.search_term }}": </h3>
+{% if data.result|length > 0 %}
+	<h3>{{ data.result|length }} results found for "{{ data.search_term }}": </h3>
 	<ul class="items">
-		{% for artist in results.data %}
+		{% for artist in data.result %}
 		<li>
 			<a href="/artists/{{ artist.id }}">
 				<i class="fas fa-users"></i>
@@ -16,6 +16,6 @@
 		{% endfor %}
 	</ul>
 {% else %}
-	<h3>No results found</h3>
+	<h3>No results found for "{{data.search_term}}"</h3>
 {% endif %}
 {% endblock %}

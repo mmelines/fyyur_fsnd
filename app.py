@@ -180,7 +180,7 @@ def search_venues():
   """
   """
   search_term = request.form.get('search_term').strip()
-  result = Artist.query.filter(Artist.name.ilike('%'+search_term+'%')).all()
+  result = Venue.query.filter(Venue.name.ilike('%'+search_term+'%')).all()
   data = {"search_term": search_term,
             "result": result}
   return render_template('pages/search_venues.html', data=data)
@@ -320,15 +320,11 @@ def local_artists():
 def search_artists():
   """
   """
-  response={
-    "count": 1,
-    "data": [{
-      "id": 4,
-      "name": "Guns N Petals",
-      "num_upcoming_shows": 0,
-    }]
-  }
-  return render_template('pages/search_artists.html', results=response, search_term=request.form.get('search_term', ''))
+  search_term = request.form.get('search_term').strip()
+  result = Artist.query.filter(Artist.name.ilike('%'+search_term+'%')).all()
+  data = {"search_term": search_term,
+            "result": result}
+  return render_template('pages/search_artists.html', data=data)
 
 @app.route('/artists/<int:artist_id>')
 def show_artist(artist_id):
