@@ -59,5 +59,10 @@
       
       <input type="submit" value="Edit Venue" class="btn btn-primary btn-lg btn-block">
     </form>
+    <script>
+      var venue = {{venue.json | tojson}};
+      var genres = {{genres | tojson}}
+    </script>
+    <script type="text/javascript" src="{{ url_for('static', filename='js/edit_form.js')  }}"></script>
   </div>
 {% endblock %}

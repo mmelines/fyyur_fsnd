@@ -3,6 +3,7 @@
 #----------------------------------------------------------------------------#
 
 import json
+from unicodedata import name
 import dateutil.parser
 import babel
 import datetime
@@ -14,6 +15,8 @@ import logging
 from logging import Formatter, FileHandler
 from flask_wtf import Form
 from forms import *
+from model import *
+
 #----------------------------------------------------------------------------#
 # App Config.
 #----------------------------------------------------------------------------#
@@ -21,87 +24,11 @@ from forms import *
 app = Flask(__name__)
 moment = Moment(app)
 app.config.from_object('config')
-db = SQLAlchemy(app)
 
-# TODO: connect to a local postgresql database
 db.app = app
 db.init_app(app)
 migrate = Migrate(app, db)
 db.create_all()
-
-#----------------------------------------------------------------------------#
-# Models.
-#----------------------------------------------------------------------------#
-
-class Venue(db.Model):
-    __tablename__ = 'venue'
-
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String, unique=True)
-    city = db.Column(db.String(120))
-    state = db.Column(db.String(120))
-    address = db.Column(db.String(120), unique=True)
-    phone = db.Column(db.String(120), unique=True)
-    image_link = db.Column(db.String(500))
-    facebook_link = db.Column(db.String(120))
-    genre_list = db.Column(db.String(500))
-    website_link = db.Column(db.String(120))
-    is_seeking = db.Column(db.Boolean())
-    seeking_description = db.Column(db.String(1040))
-    has_image = db.Column(db.Boolean())
-    shows = db.relationship('Show', backref='venue_show', lazy=True)
-    genres = db.relationship('VenueGenre', backref="venue_genre", lazy=True)
-
-class Artist(db.Model):
-    __tablename__ = 'artist'
-
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String, unique=True)
-    city = db.Column(db.String(120))
-    state = db.Column(db.String(120))
-    phone = db.Column(db.String(120), unique=True)
-    genre_list = db.Column(db.String(500))
-    image_link = db.Column(db.String(500))
-    facebook_link = db.Column(db.String(120))
-    is_seeking = db.Column(db.Boolean())
-    website_link = db.Column(db.String(120))
-    seeking_description = db.Column(db.String(1040))
-    has_image = db.Column(db.Boolean())
-    shows = db.relationship('Show', backref='artist_show', lazy=True)
-    genres = db.relationship('ArtistGenre', backref="artist_show", lazy=True)
-
-class Show(db.Model):
-    __tablename__ = "show"
-
-    id = db.Column(db.Integer, primary_key=True)
-    venue_id = db.Column(db.Integer, db.ForeignKey('venue.id'), nullable=False)
-    artist_id = db.Column(db.Integer, db.ForeignKey('artist.id'), nullable=False)
-    start_time = db.Column(db.DateTime, nullable=False)
-    end_time = db.Column(db.DateTime, nullable=False)
-    all_day = db.Column(db.Boolean)
-
-class ArtistGenre(db.Model):
-    __tablename__ = "artist_genres"
-
-    id = db.Column(db.Integer, primary_key=True)
-    artist_id = db.Column(db.Integer, db.ForeignKey('artist.id'))
-    genre_id = db.Column(db.Integer, db.ForeignKey('genre.id'))
-
-class VenueGenre(db.Model):
-    __tablename__ = "venue_genres"
-
-    id = db.Column(db.Integer, primary_key=True)
-    venue_id = db.Column(db.Integer, db.ForeignKey('venue.id'))
-    genre_id = db.Column(db.Integer, db.ForeignKey('genre.id'))
-
-class Genre(db.Model):
-    __tablename__ = "genre"
-
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String, unique=True)
-    # relationships
-    artists = db.relationship('ArtistGenre', backref='genre_artist', lazy=True)
-    genres = db.relationship('VenueGenre', backref='genre_venue', lazy=True)
 
 #----------------------------------------------------------------------------#
 # Filters.
@@ -140,67 +67,151 @@ class Obj:
     self.is_seeking = False
     self.seeking_description = False
     self.has_image = False
-    self.genre_list = False
+    self.genres = False
     self.shows = None #TODO
     self.past_shows = None #TODO
     self.upcoming_shows = None #TODO
     self.genres = None #TODO
+    self.json = None
 
   def form(self, request):
     """
     populate entity with data from a POST request
+name
+state
+city
+address
+phone
+image_link
+facebook_link
+genres
+is_seeking
+website_link
+seeking_description
+has_image
     """
-    self.name = request.form.get('name')
-    self.state = request.form.get('state')
-    self.city = request.form.get('city')
-    if self.entity_type == "venue":
-      self.address = request.form.get('address')
-    self.phone = request.form.get('phone')
-    self.image_link = request.form.get('image_link')
-    self.facebook_link = request.form.get('facebook_link')
-    self.genre_list = request.form.get('genre_list')
-    self.is_seeking = request.form.get('is_seeking')
-    self.website_link = request.form.get('website_link')
-    self.seeking_description = request.form.get('seeking_description')
-    self.has_image = request.form.get('has_image')
+    return None
 
   def copy(self, obj):
     """
     populate entity with data from a SQLAlchemy object
     """
-    self.id = obj.id
-    self.name = obj.name
-    self.state = obj.state
-    self.city = obj.city
-    if self.entity_type == "venue":
+    if hasattr(obj, 'id'):
+      self.id = obj.id
+    if hasattr(obj, 'name'):
+      self.name = obj.name
+    if hasattr(obj, 'state'):
+      self.state = obj.state
+    if hasattr(obj, 'city'):
+      self.city = obj.city
+    if self.entity_type=="venue" and hasattr(obj, 'address'):
       self.address = obj.address
-    self.phone = obj.phone
-    self.image_link = obj.image_link
-    self.facebook_link = obj.facebook_link
-    self.genre_list = obj.genre_list
-    self.is_seeking = obj.is_seeking
-    self.website_link = obj.website_link
-    self.seeking_description = obj.seeking_description
-    self.has_image = obj.has_image
+    if hasattr(obj, 'phone'):
+      self.phone = obj.phone
+    if hasattr(obj, 'image_link'):
+      self.image_link = obj.image_link
+    if hasattr(obj, 'facebook_link'):
+      self.facebook_link = obj.facebook_link
+    if hasattr(obj, 'genres'):
+      self.genres = obj.genres
+    if hasattr(obj, 'is_seeking'):
+      self.is_seeking = obj.is_seeking
+    if hasattr(obj, 'website_link'):
+      self.website_link = obj.website_link
+    if hasattr(obj, 'seeking_description'):
+      self.seeking_description = obj.seeking_description
+    if hasattr(obj, 'has_image'):
+      self.has_image = obj.has_image
     self.list_genres()
-    #self.shows = self.show(obj.shows)
+    self.json = self.return_json()
+
+  def return_json(self):
+    json_dict = {}
+    for item in self:
+      print(item)
+      json_dict[item[0]] = item[1]
+    self.json = json_dict
+    return json_dict
 
   def list_genres(self):
-    if isinstance(self.genre_list, str):
-      genres = self.genre_list[1:-1].split(',')
-      self.genre_list = genres
+    if isinstance(self.genres, str):
+      genres = self.genres.split(', ')
+      self.genres = genres
 
+  def create_edit(self, obj):
+    """
+    create sqlalchemy object to update database
+    and attempt to commit the update
+    """
+    if obj["entity_type"] == "artist":
+      entity = Artist.query.get(obj["id"])
+    elif obj["entity_type"] == "venue":
+      entity = Venue.query.get(obj["id"])
+    if "id" in obj:
+      print("found id " + str(obj["id"]))
+      entity.id = obj["id"]
+    if "name" in obj:
+      print("found name " + str(obj["name"]))
+      entity.name = obj["name"]
+    if "state" in obj:
+      print("found state " + str(obj["state"]))
+      entity.state = obj["state"]
+    if "city" in obj:
+      print("found city " + str(obj["city"]))
+      entity.city = obj["city"]
+    if "venue" in obj:
+      print("found venue " + str(obj["venue"]))
+      entity.venue = obj["venue"]
+    if "address" in obj:
+      print("found address " + str(obj["address"]))
+      entity.address = obj["address"]
+    if "phone" in obj:
+      print("found phone " + str(obj["phone"]))
+      entity.phone = obj["phone"]
+    if "image_link" in obj:
+      print("found image_link " + str(obj["image_link"]))
+      entity.image_link = obj["image_link"]
+    if "facebook_link" in obj:
+      print("found facebook_link " + str(obj["facebook_link"]))
+      entity.facebook_link = obj["facebook_link"]
+    if "genres" in obj:
+      print("found genres " + str(obj["genres"]))
+      entity.genres = obj["genres"]
+    if "is_seeking" in obj:
+      print("found is_seeking " + str(obj["is_seeking"]))
+      entity.is_seeking = obj["is_seeking"]
+    if "website_link" in obj:
+      print("found website_link " + str(obj["website_link"]))
+      entity.website_link = obj["website_link"]
+    if "seeking_description" in obj:
+      print("found seeking_description " + str(obj["seeking_description"]))
+      entity.seeking_description = obj["seeking_description"]
+    if "has_image" in obj:
+      print("found has_image " + str(obj["has_image"]))
+      entity.has_image = obj["has_image"]
+    try:
+      db.session.commit()
+      status = 1
+    except:
+      db.session.rollback()
+      status = -1
+    finally:
+      return status
+  
   def __iter__(self):
     """
     iterator properties of generic object
     """
+    yield ("id", self.id)
     yield ("name", self.name)
     yield ("state", self.state)
     yield ("city", self.city)
     yield ("phone", self.phone)
+    if hasattr(self, 'address'):
+      yield("address", self.address)
     yield ("image_link", self.image_link)
     yield ("facebook_link", self.facebook_link)
-    yield ("genre_list", self.genre_list)
+    yield ("genres", self.genres)
     yield ("is_seeking", self.is_seeking)
     yield ("seeking_description", self.seeking_description)
     yield ("has_image", self.has_image)
@@ -217,7 +228,7 @@ class Obj:
     msg += "phone: " + str(self.phone) + "\n"
     msg += "image_link: " + str(self.image_link) + "\n"
     msg += "facebook_link: " + str(self.facebook_link) + "\n"
-    msg += "genre_list: " + str(self.genre_list) + "\n"
+    msg += "genres: " + str(self.genres) + "\n"
     msg += "is_seeking: " + str(self.is_seeking) + "\n"
     msg += "seeking_description: " + str(self.seeking_description) + "\n"
     msg += "has_image: " + str(self.has_image) + "\n"
@@ -341,6 +352,7 @@ class ArtistObj(Obj):
     """
     artist = Artist.query.get(artist_id)
     self.copy(artist)
+    artist.id = artist_id;
     self.list_genres()
     return self
 
@@ -354,7 +366,7 @@ class ArtistObj(Obj):
     """
     return "TODO"
 
-  def edit_artist(self, original, form):
+  def edit_artist(self, obj):
     """
     generate artist edit based on form input
     if error, direct to handle_error() before returning
@@ -363,7 +375,8 @@ class ArtistObj(Obj):
     - form: response of POST request
     returns status (boolean). True if success and False if failure
     """
-    return "TODO"
+    status = self.create_edit(obj)
+    return status
 
 class VenueObj(Obj):
   """
@@ -498,6 +511,13 @@ def sort_by_area(results, entity_type):
     area_list.append(areas[area])
   return area_list
 
+def json_genres():
+  genres = Genre.query.all()
+  json_obj = {}
+  for genre in genres:
+    json_obj[str(genre.id)] = {"name": genre.name}
+  return json_obj 
+
 #----------------------------------------------------------------------------#
 # Controllers.
 #----------------------------------------------------------------------------#
@@ -612,29 +632,27 @@ def show_artist(artist_id):
 #  ----------------------------------------------------------------
 @app.route('/artists/<int:artist_id>/edit', methods=['GET'])
 def edit_artist(artist_id):
+  artist = ArtistObj().get_artist(artist_id)
   form = ArtistForm()
-  artist={
-    "id": 4,
-    "name": "Guns N Petals",
-    "genres": ["Rock n Roll"],
-    "city": "San Francisco",
-    "state": "CA",
-    "phone": "326-123-5000",
-    "website": "https://www.gunsnpetalsband.com",
-    "facebook_link": "https://www.facebook.com/GunsNPetals",
-    "seeking_venue": True,
-    "seeking_description": "Looking for shows to perform at in the San Francisco Bay Area!",
-    "image_link": "https://images.unsplash.com/photo-1549213783-8284d0336c4f?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=300&q=80"
-  }
-  # TODO: populate form with fields from artist with ID <artist_id>
-  return render_template('forms/edit_artist.html', form=form, artist=artist)
+  genres = json_genres()
+  return render_template('forms/edit_artist.html', form=form, artist=artist, genres=genres)
 
-@app.route('/artists/<int:artist_id>/edit', methods=['POST'])
-def edit_artist_submission(artist_id):
+@app.route('/artists/edit/', methods=['POST'])
+def edit_artist_submission():
   # TODO: take values from the form submitted, and update existing
   # artist record with ID <artist_id> using the new attributes
-
-  return redirect(url_for('show_artist', artist_id=artist_id))
+  response = json.loads(request.data)
+  if len(response) > 3:
+    print("will alter: ")
+    status = ArtistObj().edit_artist(response)
+    if status > 0: 
+      message = "Artist successfully updated."
+    else:
+      message = "Error updating artist. Try again in a few minutes."
+  else:
+    message = "Artist remains unchanged"
+  flash(message)
+  return url_for('artists')
 
 @app.route('/venues/<int:venue_id>/edit', methods=['GET'])
 def edit_venue(venue_id):
