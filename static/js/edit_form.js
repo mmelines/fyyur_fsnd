@@ -20,12 +20,25 @@ const select_genre = function(genre_name, genre_id, add_genre) {
 }
 
 const init_genre_element = function() {
+	console.log("-----------------initial genre select multiple setting-------");
 	for (genre_option in document.getElementById('genres').options) {
+		console.log("for:");
+		console.log(genre_option)
 		genre_id = genre_option.index;
 		if (Object.values(current_genres).includes(genre_option)) {
+			console.log("will add " + genre_option);
 			select_genre(genres[genre_option], genre_option, true);
 		} else {select_genre(genres[genre_option], genre_option, false);}
 	}
+}
+
+const check_genre_element = function() {
+	let genre_array = [];
+	let genre_list = "";
+	for (let selected_genre in document.getElementById('genres').selectedOptions) {
+		console.log(selected_genre);
+	}
+	return genre_list
 }
 
 const init_genre_display = function() {
@@ -40,10 +53,11 @@ const init_genre_display = function() {
 		{
 			const name = div.innerText;
 			if (entity.genres.includes(name)) {
+				console.log("alter for " + name);
 				div.classList.remove("unsel-gen");
 				div.classList.add("sel-gen");
 				current_genres[name] = id;
-			}
+			} else {console.log("neg eval for " + name);}
 			div.addEventListener('click', function() {toggle_genre(div, id, name)});
 		}
 	}
@@ -68,7 +82,7 @@ const init_genres = function() {
 	init_genre_element(current_genres);
 	alter_current_genres(current_genres);
 	return current_genres;
-}
+};
 
 const alter_current_genres = function(genre_name, add_genre) {
 	//
@@ -78,16 +92,8 @@ const alter_current_genres = function(genre_name, add_genre) {
 		cg_text += genre + ", "
 	}
 	cg_div.innerText = cg_text.slice(0, -2);
-}
+};
 
-/*
-const alter_genres = function() {
-	// recieve add_genre bool as new_value and set value of genre list to new_value
-	option = document.querySelector('select.hidden option[value="' + genre + '"]');
-	sel_genre = option.value;
-	option.value = add_genre;
-}
-*/
 const toggle_genre = function(div, id, name) {
 	// if genre is selected for the entity, change its style and remove it from selections
 	if (div.classList.contains('unsel-gen')) {
@@ -105,112 +111,29 @@ const toggle_genre = function(div, id, name) {
 	}
 	select_genre(name, id, add_genre);
 	selected_genres = alter_current_genres(name, add_genre);
-}
+};
 
 display_state_value = function() {
 	// display existing state of entity in dropdown menu at page load
 	document.getElementById('state').value = entity.state;
-}
+};
 
 display_seeking_value = function() {
 	// display accurate value of 'seeking_venues' onload
 	if (entity.is_seeking == true) {
 		document.getElementById(is_seeking).checked = true;
 	};
-}
+};
 
-get_changes = function() {
-	entity_form = {};
-	for (let attribute in Object.keys(entity)) {
-		key = Object.keys(entity)[attribute];
-		try {
-			form_element = document.getElementById(key);
-			if (!["shows", "genres", "is_seeking"].includes(key)){
-				console.log("   DO IT");
-				let new_element = (form_element != null)?form_element:false;
-				element_value = (new_element.value)? new_element.value :null;
-				final_value = (element_value == null)?entity[key]:element_value;
-			}
-			if (key=="is_seeking") {
-				final_value = document.getElementById(is_seeking).checked;
-			}
-			if (key=="genres") {
-				genres_list = [];
-				genres_object = document.getElementById('genres').selectedOptions;
-				for (let genre_index in Object.values(genres_object)) {
-					final_genre = genres_object[genre_index].value
-					if (Object.values(genres).includes(final_genre)){
-						genres_list.push(final_genre);
-					}
-				}
-				unchanged_genres = true;
-				if (genres_list.length == entity.genres.length) {
-					for (let genre of entity.genres) {
-						if (!genres_list.includes(genre)){
-							unchanged_genres = false;
-						}
-					}
-					final_genres_list = (unchanged_genres==false)?genres_list:entity.genres;
-				} else {
-					unchanged_genres = false;
-					final_genres_list = genres_list;
-				}
-				final_value = entity[key];
-				if (unchanged_genres == false){
-					genres_string = "";
-					for (let genre of final_genres_list) {
-						genres_string += genre + ", "
-					}
-					final_value = (genres_string.length > 0)?genres_string.slice(0, -2):"";
-				}
-			}
-			if (key=="shows") {final_value=null;}
-		}
-		catch (e) {
-			new_value = null;
-			final_value = new_value;
-			console.log(key + e)}
-		finally {
-			if (final_value != null) {
-				if (final_value != entity[key]) {
-					entity_form[key] = final_value
-				}
-			}
-		}
-	}
-	return entity_form;
-}
-
-finalize_entity = function(entity_form) {
-	let purpose = (document.getElementById('submit-btn').value.includes('Edit'))?'edit':'create';
-	entity_form['process'] = purpose;
-	entity_form['entity_type'] = entity_type;
-	entity_form['id'] = entity.id;
-	endpoint += "/" + purpose + "/";
-	return entity_form;
-}
-
-submit_form =function() {
-	entity_form = finalize_entity(get_changes());
-	const url = "/artists/edit/";
-	const options = {
-		method: 'POST',
-		headers: {'Content-Type': 'application/json'},
-		mode: 'no-cors',
-		body: JSON.stringify(entity_form)
-	}
-	console.log("try fetch: [" + url + "]");
-	console.log(options);
-	fetch(url, options)
-		.then(res=> res.json())
-		.then(res=>{console.log(res)});
-	console.log("fetch'd");
-}
-
-async_submit = function(e) {
-	e.preventDefault();
-	submit_form();
-	console.log("async_submit not complete");
+const presubmit = function(e) {
+	thisform = document.forms[0];
+	current_values = document.getElementById('current-genres').innerText;
+	var final_genre_list = document.createElement("input");
+	final_genre_list.type = "text";
+	final_genre_list.name = "genres_string";
+	final_genre_list.id = "genres_string";
+	final_genre_list.value = current_values;
+	thisform.append(final_genre_list);
 }
 
 window.onpageshow = function() {
@@ -231,7 +154,6 @@ window.onpageshow = function() {
 	if (!entity==false) {
 		init_existing();
 		genre_elems = document.getElementsByClassName('genre-container');
-		entity.genres = entity.genres[0].split(",");
 		current_genres = init_genres();
 		display_state_value();
 		display_seeking_value(is_seeking);

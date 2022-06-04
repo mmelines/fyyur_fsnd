@@ -19,7 +19,6 @@ class Venue(db.Model):
     seeking_description = db.Column(db.String(1040))
     has_image = db.Column(db.Boolean())
     shows = db.relationship('Show', backref='venue_show', lazy=True)
-    venue_genres = db.relationship('VenueGenre', backref="venue_genre", lazy=True)
 
 class Artist(db.Model):
     __tablename__ = 'artist'
@@ -37,7 +36,6 @@ class Artist(db.Model):
     seeking_description = db.Column(db.String(1040))
     has_image = db.Column(db.Boolean())
     shows = db.relationship('Show', backref='artist_show', lazy=True)
-    artist_genres = db.relationship('ArtistGenre', backref="artist_show", lazy=True)
 
 class Show(db.Model):
     __tablename__ = "show"
@@ -49,25 +47,8 @@ class Show(db.Model):
     end_time = db.Column(db.DateTime, nullable=False)
     all_day = db.Column(db.Boolean)
 
-class ArtistGenre(db.Model):
-    __tablename__ = "artist_genres"
-
-    id = db.Column(db.Integer, primary_key=True)
-    artist_id = db.Column(db.Integer, db.ForeignKey('artist.id'))
-    genre_id = db.Column(db.Integer, db.ForeignKey('genre.id'))
-
-class VenueGenre(db.Model):
-    __tablename__ = "venue_genres"
-
-    id = db.Column(db.Integer, primary_key=True)
-    venue_id = db.Column(db.Integer, db.ForeignKey('venue.id'))
-    genre_id = db.Column(db.Integer, db.ForeignKey('genre.id'))
-
 class Genre(db.Model):
     __tablename__ = "genre"
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String, unique=True)
-    # relationships
-    artists = db.relationship('ArtistGenre', backref='genre_artist', lazy=True)
-    genres = db.relationship('VenueGenre', backref='genre_venue', lazy=True)

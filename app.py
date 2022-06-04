@@ -71,7 +71,7 @@ class Obj:
     self.shows = None #TODO
     self.past_shows = None #TODO
     self.upcoming_shows = None #TODO
-    self.genres = None #TODO
+    self.genre_string = None #TODO
     self.json = None
 
   def form(self, request):
@@ -135,65 +135,215 @@ has_image
 
   def list_genres(self):
     if isinstance(self.genres, str):
-      genres = self.genres.split(', ')
-      self.genres = genres
+      genres = self.genres
+      self.genre_string = genres
+      self.genres = genres.split(',')
 
-  def create_edit(self, obj):
+  def format_genres(self, genres_list):
+    form_genres = genres_list.split(", ")
+    altered_genres = []
+    genre_confirm = [""]*len(self.genres)
+    plausable = True # remains true while it is plausable genres were unchanged
+    print("--------------MULTIDICT START---------")
+    for form_genre_name in form_genres:
+      print(form_genre_name)
+      altered_genres.append(form_genre_name)
+      if not form_genre_name in self.genres:
+        plausable = False
+      if form_genre_name in self.genres and plausable == True:
+        genre_confirm[self.genres.index(form_genre_name)] = form_genre_name
+      print("--------------MULTIDICT END-----------")
+    if plausable == False or "" in genre_confirm:
+      self.genres = altered_genres
+      genre_string = ""
+      for final_genre in altered_genres:
+        genre_string += final_genre + ","
+      self.genre_string = genre_string[:-1]
+      print("genres list updated to " + str(self.genres))
+      plausable = False
+    print("plausable equality eval @ " + str(plausable))
+    print("   will return " + str(not plausable))
+    return not plausable
+
+  def create_edit(self, form):
     """
     create sqlalchemy object to update database
     and attempt to commit the update
     """
-    if obj["entity_type"] == "artist":
-      entity = Artist.query.get(obj["id"])
-    elif obj["entity_type"] == "venue":
-      entity = Venue.query.get(obj["id"])
-    if "id" in obj:
-      print("found id " + str(obj["id"]))
-      entity.id = obj["id"]
-    if "name" in obj:
-      print("found name " + str(obj["name"]))
-      entity.name = obj["name"]
-    if "state" in obj:
-      print("found state " + str(obj["state"]))
-      entity.state = obj["state"]
-    if "city" in obj:
-      print("found city " + str(obj["city"]))
-      entity.city = obj["city"]
-    if "venue" in obj:
-      print("found venue " + str(obj["venue"]))
-      entity.venue = obj["venue"]
-    if "address" in obj:
-      print("found address " + str(obj["address"]))
-      entity.address = obj["address"]
-    if "phone" in obj:
-      print("found phone " + str(obj["phone"]))
-      entity.phone = obj["phone"]
-    if "image_link" in obj:
-      print("found image_link " + str(obj["image_link"]))
-      entity.image_link = obj["image_link"]
-    if "facebook_link" in obj:
-      print("found facebook_link " + str(obj["facebook_link"]))
-      entity.facebook_link = obj["facebook_link"]
-    if "genres" in obj:
-      print("found genres " + str(obj["genres"]))
-      entity.genres = obj["genres"]
-    if "is_seeking" in obj:
-      print("found is_seeking " + str(obj["is_seeking"]))
-      entity.is_seeking = obj["is_seeking"]
-    if "website_link" in obj:
-      print("found website_link " + str(obj["website_link"]))
-      entity.website_link = obj["website_link"]
-    if "seeking_description" in obj:
-      print("found seeking_description " + str(obj["seeking_description"]))
-      entity.seeking_description = obj["seeking_description"]
-    if "has_image" in obj:
-      print("found has_image " + str(obj["has_image"]))
-      entity.has_image = obj["has_image"]
+    if self.entity_type == "artist":
+      entity = Artist.query.get(self.id)
+    elif self.entity_type == "venue":
+      entity = Venue.query.get(self.id)
+    updates = 0
+    print("validating # " + str(self.id) + " : " + self.name)
+    for item in form:
+      print(item)
+    if 'name' in form:
+      print("found name in form: " + str(form.get('name')))
+      if str(self.name) != str(form.get('name')):
+        print("form name " + str(form.get('name')) + " != object name " + self.name)
+        entity.name = form.get('name')
+        updates += 1
+      else:
+        print("form name " + str(form.get('name')) + " == object name" + self.name)
+    if 'state' in form:
+      print('found state in form: ' + str(form.get('state')))
+      if str(self.state) != str(form.get('state')):
+        print(" >> no match; updating self.state to " + str(form.get('state')))
+        entity.state = form.get('state')
+        updates += 1
+      else:
+        print(" >> matches; skipping")
+    if 'city' in form:
+      print('found city in form: ' + str(form.get('city')))
+      if str(self.city) != str(form.get('city')):
+        print(" >> no match; updating self.city to " + str(form.get('city')))
+        entity.city = form.get('city')
+        updates += 1
+      else:
+        print(" >> matches; skipping")
+    if 'address' in form:
+      print('found address in form: ' + str(form.get('address')))
+      if str(self.address) != str(form.get('address')):
+        print(" >> no match; updating self.address to " + str(form.get('address')))
+        entity.address = form.get('address')
+        updates += 1
+      else:
+        print(" >> matches; skipping")
+    if 'phone' in form:
+      print('found phone in form: ' + str(form.get('phone')))
+      if str(self.phone) != str(form.get('phone')):
+        print(" >> no match; updating self.phone to " + str(form.get('phone')))
+        entity.phone = form.get('phone')
+        updates += 1
+      else:
+        print(" >> matches; skipping")
+    if 'image_link' in form:
+      print('found image_link in form: ' + str(form.get('image_link')))
+      if str(self.image_link) != str(form.get('image_link')):
+        print(" >> no match; updating self.image_link to " + str(form.get('image_link')))
+        entity.image_link = form.get('image_link')
+        updates += 1
+      else:
+        print(" >> matches; skipping")
+    if 'facebook_link' in form:
+      print('found facebook_link in form: ' + str(form.get('facebook_link')))
+      if str(self.facebook_link) != str(form.get('facebook_link')):
+        print(" >> no match; updating self.facebook_link to " + str(form.get('facebook_link')))
+        entity.facebook_link = form.get('facebook_link')
+        updates += 1
+      else:
+        print(" >> matches; skipping")
+    if 'genres' in form:
+      print('found genres in form: ' + str(form.get('genres_string')))
+      print('genres value not initiated')
+      genres_control = self.format_genres(form.get('genres_string'))
+      if genres_control == True:
+        entity.genres = self.genre_string
+        updates += 1
+        print(" >> genres updated to " + self.genre_string)
+      else:
+        print("  >> genres was unchanged. skipping")
+    if 'is_seeking' in form:
+      print('found is_seeking in form: ' + str(form.get('is_seeking')))
+      if str(self.is_seeking) != str(form.get('is_seeking')):
+        print(" >> no match; updating self.is_seeking to " + str(form.get('is_seeking')))
+        entity.is_seeking = form.get('is_seeking')
+        updates += 1
+      else:
+        print(" >> matches; skipping")
+    if 'website_link' in form:
+      print('found website_link in form: ' + str(form.get('website_link')))
+      if str(self.website_link) != str(form.get('website_link')):
+        print(" >> no match; updating self.website_link to " + str(form.get('website_link')))
+        entity.website_link = form.get('website_link')
+        updates += 1
+      else:
+        print(" >> matches; skipping")
+    if 'seeking_description' in form:
+      print('found seeking_description in form: ' + str(form.get('seeking_description')))
+      if str(self.seeking_description) != str(form.get('seeking_description')):
+        print(" >> no match; updating self.seeking_description to " + str(form.get('seeking_description')))
+        entity.seeking_description = form.get('seeking_description')
+        updates += 1
+      else:
+        print(" >> matches; skipping")
+    # handle has_image
+    if updates > 0:
+      try:
+        db.session.commit()
+        status = 201
+      except:
+        db.session.rollback()
+        status = 409
+      finally:
+        print("STATUS IS " + str(status))
+        return status
+    else:
+      print("STATUS IS 200. No changes were made")
+      return 200
+  
+  def create_insert(self, entity_type, form):
+    not_recieved = []
+    if entity_type == "artist":
+      entity = Artist()
+    if entity_type == "venue":
+      entity = Venue()
     try:
-      db.session.commit()
-      status = 1
+      entity.name = request.form.get('name')
     except:
-      db.session.rollback()
+      not_recieved.append("name")
+    try:
+      entity.state = request.form.get('state')
+    except:
+      not_recieved.append("state")
+    try:
+      entity.city = request.form.get('city')
+    except:
+      not_recieved.append("city")
+    try:
+      entity.address = request.form.get('address')
+    except:
+      not_recieved.append("address")
+    try:
+      entity.phone = request.form.get('phone')
+    except:
+      not_recieved.append("phone")
+    try:
+      entity.image_link = request.form.get('image_link')
+    except:
+      not_recieved.append("image_link")
+    try:
+      entity.facebook_link = request.form.get('facebook_link')
+    except:
+      not_recieved.append("facebook_link")
+    try:
+      entity.genres = request.form.get('genres')
+    except:
+      not_recieved.append("genres")
+    try:
+      entity.is_seeking = request.form.get('is_seeking')
+    except:
+      not_recieved.append("is_seeking")
+    try:
+      entity.website_link = request.form.get('website_link')
+    except:
+      not_recieved.append("website_link")
+    try:
+      entity.seeking_description = request.form.get('seeking_description')
+    except:
+      not_recieved.append("seeking_description")
+    try:
+      entity.has_image = request.form.get('has_image')
+    except:
+      not_recieved.append("has_image")
+    try:
+      db.session.add(entity)
+      db.session.commit()
+      status = entity.id
+      print(entity.id)
+    except:
+      db.session.rollback
       status = -1
     finally:
       return status
@@ -364,7 +514,9 @@ class ArtistObj(Obj):
      - form:
     returns status (boolean). True if success and False if failure
     """
-    return "TODO"
+    status = self.create_insert("artist", form)
+    print(status)
+    return status
 
   def edit_artist(self, obj):
     """
@@ -375,6 +527,7 @@ class ArtistObj(Obj):
     - form: response of POST request
     returns status (boolean). True if success and False if failure
     """
+    print("called edit_artist")
     status = self.create_edit(obj)
     return status
 
@@ -532,14 +685,6 @@ def index():
 @app.route('/venues')
 def venues():
   """
-  returns list of all venues
-  """
-  data = Venue.query.all()
-  return render_template('pages/venues.html', data=data)
-
-@app.route('/local_venues')
-def local_venues():
-  """
   returns list of venues, sorted by area
   """
   data = sort_by_area(Venue.query.all(), "venues")
@@ -561,6 +706,7 @@ def show_venue(venue_id):
   """
   venue = VenueObj().get_venue(venue_id).set_shows()
   print(venue)
+  
   return render_template('pages/show_venue.html', venue=venue)
 
 #  Create Venue
@@ -581,16 +727,18 @@ def create_venue_submission():
   # TODO: on unsuccessful db insert, flash an error instead.
   # e.g., flash('An error occurred. Venue ' + data.name + ' could not be listed.')
   # see: http://flask.pocoo.org/docs/1.0/patterns/flashing/
-  return render_template('pages/home.html')
+  
+  # return render_template('pages/home.html')
 
 @app.route('/venues/<venue_id>', methods=['DELETE'])
 def delete_venue(venue_id):
+  print("hit delete_venue")
   # TODO: Complete this endpoint for taking a venue_id, and using
   # SQLAlchemy ORM to delete a record. Handle cases where the session commit could fail.
 
   # BONUS CHALLENGE: Implement a button to delete a Venue on a Venue Page, have it so that
   # clicking that button delete it from the db then redirect the user to the homepage
-  return None
+  # return None
 
 #  Artists
 #  ----------------------------------------------------------------
@@ -637,22 +785,11 @@ def edit_artist(artist_id):
   genres = json_genres()
   return render_template('forms/edit_artist.html', form=form, artist=artist, genres=genres)
 
-@app.route('/artists/edit/', methods=['POST'])
-def edit_artist_submission():
-  # TODO: take values from the form submitted, and update existing
-  # artist record with ID <artist_id> using the new attributes
-  response = json.loads(request.data)
-  if len(response) > 3:
-    print("will alter: ")
-    status = ArtistObj().edit_artist(response)
-    if status > 0: 
-      message = "Artist successfully updated."
-    else:
-      message = "Error updating artist. Try again in a few minutes."
-  else:
-    message = "Artist remains unchanged"
-  flash(message)
-  return url_for('artists')
+@app.route('/artists/<artist_id>/edit', methods=["POST"])
+def edit_artist_submission(artist_id):
+  artist = ArtistObj().get_artist(artist_id)
+  artist.edit_artist(request.form)
+  return redirect(url_for('show_artist', artist_id=artist_id))
 
 @app.route('/venues/<int:venue_id>/edit', methods=['GET'])
 def edit_venue(venue_id):
@@ -676,9 +813,10 @@ def edit_venue(venue_id):
 
 @app.route('/venues/<int:venue_id>/edit', methods=['POST'])
 def edit_venue_submission(venue_id):
+  print("hit edit venue")
   # TODO: take values from the form submitted, and update existing
   # venue record with ID <venue_id> using the new attributes
-  return redirect(url_for('show_venue', venue_id=venue_id))
+  # return redirect(url_for('show_venue', venue_id=venue_id))
 
 #  Create Artist
 #  ----------------------------------------------------------------
@@ -693,12 +831,14 @@ def create_artist_submission():
   # called upon submitting the new artist listing form
   # TODO: insert form data as a new Venue record in the db, instead
   # TODO: modify data to be the data object returned from db insertion
+  status = ArtistObj().form_artist(request.form)
+  print(status)
 
   # on successful db insert, flash success
   flash('Artist ' + request.form['name'] + ' was successfully listed!')
   # TODO: on unsuccessful db insert, flash an error instead.
   # e.g., flash('An error occurred. Artist ' + data.name + ' could not be listed.')
-  return render_template('pages/home.html')
+  # return url_for('artists')
 
 
 #  Shows
@@ -762,7 +902,10 @@ def create_show_submission():
   # TODO: on unsuccessful db insert, flash an error instead.
   # e.g., flash('An error occurred. Show could not be listed.')
   # see: http://flask.pocoo.org/docs/1.0/patterns/flashing/
-  return render_template('pages/home.html')
+  # return render_template('pages/home.html')
+
+#  Error Handling
+#  ----------------------------------------------------------------
 
 @app.errorhandler(404)
 def not_found_error(error):
