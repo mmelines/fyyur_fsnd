@@ -1,13 +1,3 @@
-const init_existing = function() {
-	// populate form with the entity's existing values from database query
-	for (let attribute of Object.keys(entity)) {
-		if (!["genres", "id", "shows", "has_image", "is_seeking"].includes(attribute)) {
-			form_div = document.getElementById(attribute);
-			form_div.value = entity[attribute];
-		}
-	}
-}
-
 const select_genre = function(genre_name, genre_id, add_genre) {
 	// select genre in hidden select multiple container programatically
 	option = document.querySelector('select.hidden option[value="' + genre_name + '"]');
@@ -45,12 +35,7 @@ const init_genre_display = function() {
 		if (div.innerText != undefined)
 		{
 			const name = div.innerText;
-			if (entity.genres.includes(name)) {
-				console.log("alter for " + name);
-				div.classList.remove("unsel-gen");
-				div.classList.add("sel-gen");
-				current_genres[name] = id;
-			} else {console.log("neg eval for " + name);}
+			console.log("neg eval for " + name);
 			div.addEventListener('click', function() {toggle_genre(div, id, name)});
 		}
 	}
@@ -111,18 +96,6 @@ const toggle_genre = function(div, id, name) {
 	selected_genres = alter_current_genres(name, add_genre);
 };
 
-display_state_value = function() {
-	// display existing state of entity in dropdown menu at page load
-	document.getElementById('state').value = entity.state;
-};
-
-display_seeking_value = function() {
-	// display accurate value of 'seeking_venues' onload
-	if (entity.is_seeking == true) {
-		document.getElementById(is_seeking).checked = true;
-	};
-};
-
 const presubmit = function(e) {
 	// add string genres_list to form object before form submission
 	// corrects error re: genres selectMultiple intermittently returning only first genre
@@ -134,39 +107,11 @@ const presubmit = function(e) {
 	final_genre_list.id = "genres_string";
 	final_genre_list.value = current_values;
 	thisform.append(final_genre_list);
-	image_url = document.getElementById('image_link').value;
-	var final_has_image = document.createElement("input");
-	final_has_image.type = "checkbox";
-	final_has_image.name = "has_image";
-	final_has_image.id = "has_image";
-	final_has_image.checked = (image_url.length > 0)?true:false;
-	thisform.append(final_has_image);
 }
 
 window.onpageshow = function() {
 	console.log("load window"); // confirm this script is linked properly
-	entity = false;
-	try {
-		// if artist is recieved, set entity to artist and add required attributes
-		entity = artist;
-		entity_type = "artist";
-		is_seeking = 'seeking_venue';
-		endpoint = '/artists/'+entity.id;
-	} catch(e) {};
-	try {
-		// if venue is recieved, set entity to venue and add required attributes
-		entity = venue;
-		entity_type = "venue";
-		is_seeking = 'seeking_artist';
-		endpoint = '/venues/'+entity.id;
-	} catch(e) {};
-	// populate form elements with existing values if entity recieved is a string
-	if (!entity==false) {
-		init_existing();
-		genre_elems = document.getElementsByClassName('genre-container');
-		current_genres = init_genres();
-		display_state_value();
-		display_seeking_value(is_seeking);
-	}
+    genre_elems = document.getElementsByClassName('genre-container');
+    current_genres = init_genres();
 }
 

@@ -25,8 +25,17 @@
         </div>
       <div class="form-group">
         <label for="genres">Genres</label>
-        <small>Ctrl+Click to select multiple</small>
-        {{ form.genres(class_ = 'form-control', placeholder='Genres, separated by commas', autofocus = true) }}
+        <div id="current-genres"></div>
+        <div>
+          <div id="available-genres" class="genres-container">
+            {% for genre in genres %}
+              <div id="{{genre}}" class="genre-container unsel-gen">
+                {{genres[genre]['name']}}
+              </div>
+            {% endfor %}
+          </div>
+          {{ form.genres(class_ = 'hidden')}}
+        </div>
       </div>
       <div class="form-group">
           <label for="facebook_link">Facebook Link</label>
@@ -52,7 +61,11 @@
               <label for="seeking_description">Seeking Description</label>
               {{ form.seeking_description(class_ = 'form-control', autofocus = true) }}
             </div>
-      <input type="submit" value="Create Artist" class="btn btn-primary btn-lg btn-block">
+      <input type="submit" value="Create Artist" class="btn btn-primary btn-lg btn-block" onclick="presubmit(event)">
     </form>
+    <script>
+      var genres = {{genres | tojson}};
+    </script>
+    <script type="text/javascript" src="{{ url_for('static', filename='js/create_form.js')  }}"></script>
   </div>
 {% endblock %}

@@ -10,12 +10,14 @@ import datetime
 from flask import Flask, render_template, request, Response, flash, redirect, url_for, jsonify
 from flask_moment import Moment
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy.exc import SQLAlchemyError
 from flask_migrate import Migrate
 import logging
 from logging import Formatter, FileHandler
 from flask_wtf import Form
 from forms import *
 from model import *
+from pprint import pprint
 
 #----------------------------------------------------------------------------#
 # App Config.
@@ -45,6 +47,7 @@ def format_datetime(value, format='medium'):
   return babel.dates.format_datetime(date, format, locale='en')
 
 app.jinja_env.filters['datetime'] = format_datetime
+
 #----------------------------------------------------------------------------#
 # Custom Classes
 #----------------------------------------------------------------------------#
@@ -73,24 +76,6 @@ class Obj:
     self.upcoming_shows = None #TODO
     self.genre_string = None #TODO
     self.json = None
-
-  def form(self, request):
-    """
-    populate entity with data from a POST request
-name
-state
-city
-address
-phone
-image_link
-facebook_link
-genres
-is_seeking
-website_link
-seeking_description
-has_image
-    """
-    return None
 
   def copy(self, obj):
     """
@@ -124,8 +109,12 @@ has_image
       self.has_image = obj.has_image
     self.list_genres()
     self.json = self.return_json()
+    return self
 
   def return_json(self):
+    """
+    return dict of entity based on fields populated in SQLAlchemy object
+    """
     json_dict = {}
     for item in self:
       print(item)
@@ -134,17 +123,24 @@ has_image
     return json_dict
 
   def list_genres(self):
+    """
+    modify genres attribute in json object to contain list of genres as
+    opposed to the genre_string, seperated by commas
+    """
     if isinstance(self.genres, str):
       genres = self.genres
       self.genre_string = genres
       self.genres = genres.split(',')
 
   def format_genres(self, genres_list):
+    """
+    fomat genres from list into string stored in db
+    used to evaluate if genres have been modified in an update
+    """
     form_genres = genres_list.split(", ")
     altered_genres = []
     genre_confirm = [""]*len(self.genres)
-    plausable = True # remains true while it is plausable genres were unchanged
-    print("--------------MULTIDICT START---------")
+    plausable = True # remains true while it is plausable genres remain unchanged
     for form_genre_name in form_genres:
       print(form_genre_name)
       altered_genres.append(form_genre_name)
@@ -152,138 +148,110 @@ has_image
         plausable = False
       if form_genre_name in self.genres and plausable == True:
         genre_confirm[self.genres.index(form_genre_name)] = form_genre_name
-      print("--------------MULTIDICT END-----------")
     if plausable == False or "" in genre_confirm:
       self.genres = altered_genres
       genre_string = ""
       for final_genre in altered_genres:
         genre_string += final_genre + ","
       self.genre_string = genre_string[:-1]
-      print("genres list updated to " + str(self.genres))
       plausable = False
-    print("plausable equality eval @ " + str(plausable))
-    print("   will return " + str(not plausable))
     return not plausable
 
   def create_edit(self, form):
     """
-    create sqlalchemy object to update database
-    and attempt to commit the update
+    alter sqlalchemy object to update database
+    and attempt to commit the update if changes were made
     """
     if self.entity_type == "artist":
       entity = Artist.query.get(self.id)
     elif self.entity_type == "venue":
       entity = Venue.query.get(self.id)
     updates = 0
-    print("validating # " + str(self.id) + " : " + self.name)
-    for item in form:
-      print(item)
+    # if user has made changes for an update, add them to session entity obj
+    # count how many updates have been made
     if 'name' in form:
-      print("found name in form: " + str(form.get('name')))
       if str(self.name) != str(form.get('name')):
-        print("form name " + str(form.get('name')) + " != object name " + self.name)
         entity.name = form.get('name')
         updates += 1
-      else:
-        print("form name " + str(form.get('name')) + " == object name" + self.name)
     if 'state' in form:
-      print('found state in form: ' + str(form.get('state')))
       if str(self.state) != str(form.get('state')):
-        print(" >> no match; updating self.state to " + str(form.get('state')))
         entity.state = form.get('state')
         updates += 1
-      else:
-        print(" >> matches; skipping")
     if 'city' in form:
-      print('found city in form: ' + str(form.get('city')))
       if str(self.city) != str(form.get('city')):
-        print(" >> no match; updating self.city to " + str(form.get('city')))
         entity.city = form.get('city')
         updates += 1
-      else:
-        print(" >> matches; skipping")
     if 'address' in form:
-      print('found address in form: ' + str(form.get('address')))
       if str(self.address) != str(form.get('address')):
-        print(" >> no match; updating self.address to " + str(form.get('address')))
         entity.address = form.get('address')
         updates += 1
-      else:
-        print(" >> matches; skipping")
     if 'phone' in form:
-      print('found phone in form: ' + str(form.get('phone')))
       if str(self.phone) != str(form.get('phone')):
-        print(" >> no match; updating self.phone to " + str(form.get('phone')))
         entity.phone = form.get('phone')
         updates += 1
-      else:
-        print(" >> matches; skipping")
     if 'image_link' in form:
-      print('found image_link in form: ' + str(form.get('image_link')))
       if str(self.image_link) != str(form.get('image_link')):
-        print(" >> no match; updating self.image_link to " + str(form.get('image_link')))
         entity.image_link = form.get('image_link')
         updates += 1
-      else:
-        print(" >> matches; skipping")
     if 'facebook_link' in form:
-      print('found facebook_link in form: ' + str(form.get('facebook_link')))
       if str(self.facebook_link) != str(form.get('facebook_link')):
-        print(" >> no match; updating self.facebook_link to " + str(form.get('facebook_link')))
         entity.facebook_link = form.get('facebook_link')
         updates += 1
-      else:
-        print(" >> matches; skipping")
     if 'genres' in form:
-      print('found genres in form: ' + str(form.get('genres_string')))
-      print('genres value not initiated')
       genres_control = self.format_genres(form.get('genres_string'))
       if genres_control == True:
         entity.genres = self.genre_string
         updates += 1
-        print(" >> genres updated to " + self.genre_string)
-      else:
-        print("  >> genres was unchanged. skipping")
     if 'is_seeking' in form:
-      print('found is_seeking in form: ' + str(form.get('is_seeking')))
       if str(self.is_seeking) != str(form.get('is_seeking')):
-        print(" >> no match; updating self.is_seeking to " + str(form.get('is_seeking')))
         entity.is_seeking = form.get('is_seeking')
         updates += 1
-      else:
-        print(" >> matches; skipping")
     if 'website_link' in form:
-      print('found website_link in form: ' + str(form.get('website_link')))
       if str(self.website_link) != str(form.get('website_link')):
-        print(" >> no match; updating self.website_link to " + str(form.get('website_link')))
         entity.website_link = form.get('website_link')
         updates += 1
-      else:
-        print(" >> matches; skipping")
     if 'seeking_description' in form:
-      print('found seeking_description in form: ' + str(form.get('seeking_description')))
       if str(self.seeking_description) != str(form.get('seeking_description')):
-        print(" >> no match; updating self.seeking_description to " + str(form.get('seeking_description')))
         entity.seeking_description = form.get('seeking_description')
         updates += 1
-      else:
-        print(" >> matches; skipping")
-    # handle has_image
+    has_image = True if 'has_image' in form else False
+    if has_image != self.has_image:
+      entity.has_image = has_image
+      updates += 1
+    # if any changes were made, commit the entity session object to database
     if updates > 0:
       try:
         db.session.commit()
-        status = 201
+        status_code = 201
+        error = False
+        name = entity.name
+      except (BaseException, SQLAlchemyError) as err:
+        db.session.rollback()
+        status_code = 409
+        name = ""
+        error = err
+        print(err)
       except:
         db.session.rollback()
-        status = 409
+        status_code = 409
+        name = ""
+        error = True
       finally:
-        print("STATUS IS " + str(status))
-        return status
+        status = {"verb": "edited",
+                "status": status_code,
+                  "error": error}
+        if len(name) > 0:
+          status["name"] = name
     else:
-      print("STATUS IS 200. No changes were made")
-      return 200
+      status = {"verb": "edited",
+                "status": 200,
+                "error": False}
+    return status
   
   def create_insert(self, entity_type, form):
+    """
+
+    """
     not_recieved = []
     if entity_type == "artist":
       entity = Artist()
@@ -337,20 +305,33 @@ has_image
       entity.has_image = request.form.get('has_image')
     except:
       not_recieved.append("has_image")
+    # attempt to commit new object to database
     try:
       db.session.add(entity)
       db.session.commit()
-      status = entity.id
-      print(entity.id)
+      status = {"status": 200,
+                "error": False,
+                "name": request.form.get('name'),
+                "id": entity.id}
+    except (BaseException, SQLAlchemyError) as err:
+      # if a common error occurs, print error and set code to 409
+      db.session.rollback()
+      status_code = 409
+      name = ""
+      error = err
+      print(err)
     except:
+      # if an error occurs outside of base classes, catch it anyways
       db.session.rollback
-      status = -1
+      status = {"status": 409,
+                "error": True}
     finally:
+      status["verb"] = "listed"
       return status
   
   def __iter__(self):
     """
-    iterator properties of generic object
+    define iterator properties of generic object
     """
     yield ("id", self.id)
     yield ("name", self.name)
@@ -369,7 +350,7 @@ has_image
 
   def __repr__(self):
     """
-    string representation of entity instance
+    define string representation of entity instance
     """
     msg = "id: " + str(self.id) + "; "
     msg += "name: " + str(self.name) + "\n"
@@ -385,41 +366,28 @@ has_image
     msg += "shows: " + str(self.shows) + "\n"
     return msg
 
-  @staticmethod
-  def flash(obj):
+  def flash(self, obj):
     """
     generate messages to be flashed in common situations
     """
-    data = {"failure": True,
-            "msg": "Could not create venue obj. "}
-    pprint(obj)
     if not obj is None:
       if "name" in obj.keys():
         if obj["error"] == False:
-          msg = 'Venue ' + obj["name"] + " was listed successfully"
-          data = obj
+          msg = self.entity_type + " " + obj["name"] + " was " + obj["verb"] + " successfully."
         else:
-          #
-          if obj["error_info"].find("UniqueViolation"):
-            error_msg = obj["error_info"][obj["error_info"].find("DETAIL"):]
-            error_msg = error_msg.split("=")
-            field = error_msg[0][error_msg[1].find("("):-1]
-            value = error_msg[1][1:error_msg[1].find(")") + 1]
-            msg = "Venue " + obj["name"] + " couldn't be created because its "
-            msg += field + value + " already exists in the database."
-          #
-          else: 
             msg = "Oops! Something went wrong on our end. "
             if obj["name"] != False:
-              msg += 'Venue ' + obj["name"] + " could not be listed. "
+              msg += self.entity_type + " " + obj["name"] + " could not be " + obj["verb"] + ". "
             msg += "Please try again later."
-          data["msg"] = msg
-        flash(msg)
       else:
-        data["msg"] += "Invalid Form submission."
+        msg = "Could not create " + self.entity_type + ". Invalid Form submission."
     else:
-      data["msg"] += "Form not recieved."
-    return datas
+      msg = "Error. Form not recieved."
+    obj["flash_msg"] = msg
+    print("--------------- ** FLASH ** ---------------")
+    print(obj)
+    print("---------------    click    ---------------")
+    return obj
 
   @staticmethod
   def add_error_msg(sys_error):
@@ -434,6 +402,9 @@ has_image
     return string
 
   def get_shows(self):
+    """
+    get all shows associated to an artist or venue as a list
+    """
     if self.entity_type == "artist":
       shows = Show.query.filter_by(artist_id=self.id).all()
     if self.entity_type == "venue":
@@ -441,7 +412,14 @@ has_image
     return shows
 
   def set_shows(self):
+    """
+    append show dict (neccessary display information) to existing entity object
+    """
     def append_pair(show, entity_type):
+      """
+      append the name and image dict "paried" to the show id
+      seperate past and upcoming shows
+      """
       if entity_type == "artist":
         if not show.venue_id in pairs.keys():
           venue = Venue.query.filter_by(id=show.venue_id).one()
@@ -467,12 +445,15 @@ has_image
     shows = self.get_shows()
     pairs = {}
     for show in shows:
+      # get neccessary information to display show from id in shows list
+      # append it to self.shows dict or, if it does not exist, create it
       new_show = append_pair(ShowObj().copy(show), self.entity_type)
       if self.shows is None:
         self.shows = {new_show.show_id : new_show}
       else:
         if not new_show.show_id in self.shows.keys():
           self.shows[new_show.show_id] = new_show
+      # seperate past and upcoming shows
       now = datetime.now()
       if new_show.start_time < now:
         if not isinstance(self.past_shows, list):
@@ -486,16 +467,20 @@ has_image
 
 class ArtistObj(Obj):
   """
-  Handles common functions of Artist objects
+  Handles common functions of Artist object formatting
   """
 
   def __init__(self, **kwargs):
-    super().__init__()
+    """
+    init instance of ArtistObj class
+    """
+    super().__init__() #inherit entity base class
     self.entity_type = "artist"
 
   def get_artist(self, artist_id):
     """
     return sqlalchemy model of one artist entity
+
     takes one input parameter:
      - artist_id: primary key of artist
     returns status (boolean). True if success and False if failure
@@ -510,34 +495,39 @@ class ArtistObj(Obj):
     """
     generate new artist from form data and commit to db
     if error, direct to handle_error() before returning
+
     takes one input paramerter:
      - form:
     returns status (boolean). True if success and False if failure
     """
     status = self.create_insert("artist", form)
-    print(status)
-    return status
+    data = self.flash(status)
+    return data
 
   def edit_artist(self, obj):
     """
     generate artist edit based on form input
     if error, direct to handle_error() before returning
+
     takes two input parameters:
     - artist: original artist object with given data
     - form: response of POST request
     returns status (boolean). True if success and False if failure
     """
-    print("called edit_artist")
     status = self.create_edit(obj)
-    return status
+    data = self.flash(status)
+    return data
 
 class VenueObj(Obj):
   """
-  Handles common functions of Venue objects
+  Handles common functions of Venue object formatting
   """
 
   def __init__(self, **kwargs):
-    super().__init__()
+    """
+    init instance of Venue class
+    """
+    super().__init__() #init entity base clase
     self.entity_type = "venue"
 
   def get_venue(self, venue_id):
@@ -560,9 +550,11 @@ class VenueObj(Obj):
      - form:
     returns status (boolean). True if success and False if failure
     """
-    return "TODO"
+    status = self.create_insert("venue", form)
+    data = self.flash(status)
+    return data
 
-  def edit_venue(self, original, form):
+  def edit_venue(self, obj):
     """
     generate venue edit based on form input
     if error, direct to handle_error() before returning
@@ -571,9 +563,14 @@ class VenueObj(Obj):
     - form: response of POST request
     returns status (boolean). True if success and False if failure
     """
-    return "TODO"
+    status = self.create_edit(obj)
+    data = self.flash(status)
+    return data
 
 class ShowObj:
+  """
+  handles common functions of ShowObj formatting
+  """
 
   def __init__(self):
     """
@@ -583,35 +580,195 @@ class ShowObj:
     self.venue_id = None
     self.artist_id = None
     self.start_time = None
+    self.start = {}
     self.end_time = None
+    self.end = {}
     self.all_day = None
     self.artist_image_link = None
+    self.venue_name = None
     self.venue_image_link = None
+    self.venue_name = None
+    self.json = {}
 
-  def form(self, request):
+  def create_insert(self, form):
     """
+    insert show object
     """
-    self.show_id = request.form.get('show_id')
-    self.venue_id = request.form.get('venue_id')
-    self.artist_id = request.form.get('artist_id')
-    self.start_time = request.form.get('start_time')
-    self.end_time = request.form.get('end_time')
-    self.all_day = request.form.get('all_day')
-    return self
+    not_recieved = []
+    show = Show()
+    try:
+      show.name = request.form.get('show_id')
+    except:
+      not_recieved.append("show_id")
+    try:
+      show.venue_id = request.form.get('venue_id')
+    except:
+      not_recieved.append("venue_id")
+    try:
+      show.artist_id = request.form.get('artist_id')
+    except:
+      not_recieved.append("artist_id")
+    try:
+      show.start_time = request.form.get('start_time')
+    except:
+      not_recieved.append("start_time")
+    try:
+      show.end_time = request.form.get('end_time')
+    except:
+      not_recieved.append("end_time")
+    try:
+      show.all_day = request.form.get('all_day')
+    except:
+      not_recieved.append("all_day")
+    try:
+      db.session.add(show)
+      db.session.commit()
+      status = {"status": 200,
+                "error": False,
+                "id": show.id}
+    except (BaseException, SQLAlchemyError) as err:
+      db.session.rollback()
+      status_code = 409
+      name = ""
+      error = err
+      print(err)
+    except:
+      db.session.rollback
+      status = {"status": 409,
+                "error": True}
+    finally:
+      status["verb"] = "listed"
+      print(" -- status in create_show: ")
+      print(status)
+      return status
+
+  def create_edit(self, form):
+    """
+show_id
+venue_id
+artist_id
+start_time
+end_time
+all_day
+    """
+    show = Show.query.get(self.id)
+    updates = 0
+    if 'show_id' in form:
+      print("found show_id in form: " + str(form.get('show_id')))
+      if str(self.show_id) != str(form.get('show_id')):
+        print(" >> no match; updating self.show_id to " + str(form.get('show_id')))
+        show.show_id = form.get('show_id')
+        updates += 1
+      else:
+        print(" >> matches; skipping")
+    if 'venue_id' in form:
+      print("found venue_id in form: " + str(form.get('venue_id')))
+      if str(self.venue_id) != str(form.get('venue_id')):
+        print(" >> no match; updating self.venue_id to " + str(form.get('venue_id')))
+        show.venue_id = form.get('venue_id')
+        updates += 1
+      else:
+        print(" >> matches; skipping")
+    if 'artist_id' in form:
+      print("found artist_id in form: " + str(form.get('artist_id')))
+      if str(self.artist_id) != str(form.get('artist_id')):
+        print(" >> no match; updating self.artist_id to " + str(form.get('artist_id')))
+        show.artist_id = form.get('artist_id')
+        updates += 1
+      else:
+        print(" >> matches; skipping")
+    if 'start_time' in form:
+      print("found start_time in form: " + str(form.get('start_time')))
+      if str(self.start_time) != str(form.get('start_time')):
+        print(" >> no match; updating self.start_time to " + str(form.get('start_time')))
+        show.start_time = form.get('start_time')
+        updates += 1
+      else:
+        print(" >> matches; skipping")
+    if 'end_time' in form:
+      print("found end_time in form: " + str(form.get('end_time')))
+      if str(self.end_time) != str(form.get('end_time')):
+        print(" >> no match; updating self.end_time to " + str(form.get('end_time')))
+        show.end_time = form.get('end_time')
+        updates += 1
+      else:
+        print(" >> matches; skipping")
+    if 'all_day' in form:
+      print("found all_day in form: " + str(form.get('all_day')))
+      if str(self.all_day) != str(form.get('all_day')):
+        print(" >> no match; updating self.all_day to " + str(form.get('all_day')))
+        show.all_day = form.get('all_day')
+        updates += 1
+      else:
+        print(" >> matches; skipping")
+    if updates > 0:
+      try:
+        db.session.commit()
+        status_code = 201
+        error = False
+        name = show.name
+      except (BaseException, SQLAlchemyError) as err:
+        db.session.rollback()
+        status_code = 409
+        name = ""
+        error = err
+        print(err)
+      except:
+        db.session.rollback()
+        status_code = 409
+        name = ""
+        error = True
+      finally:
+        status = {"verb": "edited",
+                "status": status_code,
+                  "error": error}
+        if len(name) > 0:
+          status["name"] = name
+    else:
+      status = {"verb": "edited",
+                "status": 200,
+                "error": False}
+    return status
 
   def copy(self, obj):
     """
+    populate ShowObj item from SQLAlchemy object
     """
-    self.show_id = obj.id
-    self.venue_id = obj.venue_id
-    self.artist_id = obj.artist_id
-    self.start_time = obj.start_time
-    self.end_time = obj.end_time
-    self.all_day = obj.all_day
+    def expand_datetime(show_date):
+      print("called expand_datetime " + str(show_date) + " (" + str(type(show_date)) + ")")
+      """
+      datetime = {"year": show_date.year,
+                  "month": show_date.month,
+                  "day": show_date.,
+                  "hour": ,
+                  "minute": ,
+                  "second": ,}
+      """
+
+    if hasattr(obj, 'show_id'):
+      self.show_id = obj.show_id
+    if hasattr(obj, 'venue_id'):
+      self.venue_id = obj.venue_id
+    if hasattr(obj, 'artist_id'):
+      self.artist_id = obj.artist_id
+    if hasattr(obj, 'start_time'):
+      self.start_time = obj.start_time
+      expand_datetime(self.start_time)
+    if hasattr(obj, 'end_time'):
+      self.end_time = obj.end_time
+      expand_datetime(self.end_time)
+    if hasattr(obj, 'all_day'):
+      self.all_day = obj.all_day
+    json_dict = {}
+    for item in self:
+      print(item)
+      json_dict[item[0]] = item[1]
+    self.json = json_dict
     return self
 
   def __iter__(self):
     """
+    define iterative properties of ShowObj class
     """
     yield ("show_id", self.show_id)
     yield ("venue_id", self.venue_id)
@@ -622,6 +779,7 @@ class ShowObj:
 
   def __repr__(self):
     """
+    define string representation of ShowObj instances
     """
     msg = "ShowObj item: \n"
     msg += "show_id: " + str(self.show_id) + "\n"
@@ -635,6 +793,44 @@ class ShowObj:
 #----------------------------------------------------------------------------#
 # Useful functions.
 #----------------------------------------------------------------------------#
+def expand_shows():
+  """
+  expand ShowObj to contain artist and venue information for display
+  """
+  shows = Show.query.all()
+  show_dict = {"artists": {}, "venues": {}}
+  expanded_shows = []
+  for sqlalchemy_show in shows:
+    show = ShowObj().copy(sqlalchemy_show)
+    # get artist information from artist_id
+    show_artist_id = show.artist_id
+    # if artist not already stored, query db for artist based on id information
+    #  reduces n queries if multiple shows exist for an artist entry
+    if not show_artist_id in show_dict["artists"]:
+      sqlalchemy_artist = Artist.query.get(show_artist_id)
+      show_artist = ArtistObj().copy(sqlalchemy_artist)
+      show_dict["artists"][show_artist_id] = {}
+      show_dict["artists"][show_artist_id]["image_link"] = show_artist.image_link
+      show_dict["artists"][show_artist_id]["name"] = show_artist.name
+    # copy information from show_dict to show obj for display
+    show.artist_image_link = show_dict["artists"][show_artist_id]["image_link"]
+    show.artist_name = show_dict["artists"][show_artist_id]["name"]
+    # get venue information from venue_id
+    show_venue_id = show.venue_id
+    # if venue not already stored, query db for venue based on id information
+    #  reduces n queries if multiple show exist for one venue entity
+    if not show_venue_id in show_dict["venues"]:
+      sqlalchemy_venue = Venue.query.get(show_venue_id)
+      show_venue = VenueObj().copy(sqlalchemy_venue)
+      show_dict["venues"][show_venue_id] = {}
+      show_dict["venues"][show_venue_id]["image_link"] = show_venue.image_link
+      show_dict["venues"][show_venue_id]["name"] = show_venue.name
+    # copy information from show_dict to show object
+    show.venue_image_link = show_dict["venues"][show_venue_id]["image_link"]
+    show.venue_name = show_dict["venues"][show_venue_id]["name"]
+    # add expanded show dict to list of expanded shows
+    expanded_shows.append(show)
+  return expanded_shows
 
 def sort_by_area(results, entity_type):
   """
@@ -652,6 +848,7 @@ def sort_by_area(results, entity_type):
   """
   areas = {}
   for result in results:
+    # generate unique location header for search
     area = result.city + ", " + result.state
     if area in areas:
       areas[area][entity_type].append(result)
@@ -659,17 +856,21 @@ def sort_by_area(results, entity_type):
       areas[area] = {"city": result.city,
                      "state": result.state,
                      entity_type: []}
+  # generate list of search results and their headers
   area_list = []
   for area in areas:
     area_list.append(areas[area])
   return area_list
 
 def json_genres():
+  """
+  get all genres
+  """
   genres = Genre.query.all()
   json_obj = {}
   for genre in genres:
     json_obj[str(genre.id)] = {"name": genre.name}
-  return json_obj 
+  return json_obj
 
 #----------------------------------------------------------------------------#
 # Controllers.
@@ -693,6 +894,7 @@ def venues():
 @app.route('/venues/search', methods=['POST'])
 def search_venues():
   """
+  returns search result for venue search
   """
   search_term = request.form.get('search_term').strip()
   result = Venue.query.filter(Venue.name.ilike('%'+search_term+'%')).all()
@@ -703,32 +905,44 @@ def search_venues():
 @app.route('/venues/<int:venue_id>')
 def show_venue(venue_id):
   """
+  returns details for individual venue
   """
   venue = VenueObj().get_venue(venue_id).set_shows()
   print(venue)
-  
   return render_template('pages/show_venue.html', venue=venue)
+
+@app.route('/venues/<venue_id>/verify')
+def verify_venue(venue_id):
+  """
+  verifies venue id exists in database
+  """
+  try:
+    verification = {"name": Venue.query.get(venue_id).name}
+  except:
+    verification = {"name": False}
+  print("hit " + str(venue_id) + " with a " + str(verification))
+  return jsonify(verification)
 
 #  Create Venue
 #  ----------------------------------------------------------------
 
 @app.route('/venues/create', methods=['GET'])
 def create_venue_form():
+  """
+  return form to create genre
+  """
   form = VenueForm()
-  return render_template('forms/new_venue.html', form=form)
+  genres = json_genres()
+  return render_template('forms/new_venue.html', form=form, genres=genres)
 
 @app.route('/venues/create', methods=['POST'])
 def create_venue_submission():
-  # TODO: insert form data as a new Venue record in the db, instead
-  # TODO: modify data to be the data object returned from db insertion
-
-  # on successful db insert, flash success
-  flash('Venue ' + request.form['name'] + ' was successfully listed!')
-  # TODO: on unsuccessful db insert, flash an error instead.
-  # e.g., flash('An error occurred. Venue ' + data.name + ' could not be listed.')
-  # see: http://flask.pocoo.org/docs/1.0/patterns/flashing/
-  
-  # return render_template('pages/home.html')
+  """
+  recieve create genre form content as POST and commit it to database
+  """
+  data = VenueObj().form_venue(request.form)
+  flash(data["flash_msg"])
+  return redirect(url_for('venues'))
 
 @app.route('/venues/<venue_id>', methods=['DELETE'])
 def delete_venue(venue_id):
@@ -761,6 +975,7 @@ def local_artists():
 @app.route('/artists/search', methods=['POST'])
 def search_artists():
   """
+  returns values from a search of artist names
   """
   search_term = request.form.get('search_term').strip()
   result = Artist.query.filter(Artist.name.ilike('%'+search_term+'%')).all()
@@ -776,10 +991,27 @@ def show_artist(artist_id):
   artist = ArtistObj().get_artist(artist_id).set_shows()
   return render_template('pages/show_artist.html', artist=artist)
 
+@app.route('/artists/<artist_id>/verify')
+def verify_artist(artist_id):
+  """
+  validates artist id is valid
+  """
+  try:
+    verified_artist = Artist.query.get(artist_id)
+    verification = {"name": verified_artist.name,
+                    "img": verified_artist.image_link}
+  except:
+    verification = {"name": False}
+  print("hit " + str(artist_id) + " with a " + str(verification))
+  return jsonify(verification)
+
 #  Update
 #  ----------------------------------------------------------------
 @app.route('/artists/<int:artist_id>/edit', methods=['GET'])
 def edit_artist(artist_id):
+  """
+  return artist edit form populated with current artist data
+  """
   artist = ArtistObj().get_artist(artist_id)
   form = ArtistForm()
   genres = json_genres()
@@ -787,122 +1019,87 @@ def edit_artist(artist_id):
 
 @app.route('/artists/<artist_id>/edit', methods=["POST"])
 def edit_artist_submission(artist_id):
+  """
+  recieve artist update info as POST and commit it to database
+  """
   artist = ArtistObj().get_artist(artist_id)
-  artist.edit_artist(request.form)
+  data = artist.edit_artist(request.form)
+  flash(data["flash_msg"])
   return redirect(url_for('show_artist', artist_id=artist_id))
 
 @app.route('/venues/<int:venue_id>/edit', methods=['GET'])
 def edit_venue(venue_id):
+  """
+  return venue edit form populated with current venue data
+  """
+  venue = VenueObj().get_venue(venue_id)
   form = VenueForm()
-  venue={
-    "id": 1,
-    "name": "The Musical Hop",
-    "genres": ["Jazz", "Reggae", "Swing", "Classical", "Folk"],
-    "address": "1015 Folsom Street",
-    "city": "San Francisco",
-    "state": "CA",
-    "phone": "123-123-1234",
-    "website": "https://www.themusicalhop.com",
-    "facebook_link": "https://www.facebook.com/TheMusicalHop",
-    "seeking_talent": True,
-    "seeking_description": "We are on the lookout for a local artist to play every two weeks. Please call us.",
-    "image_link": "https://images.unsplash.com/photo-1543900694-133f37abaaa5?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=400&q=60"
-  }
-  # TODO: populate form with values from venue with ID <venue_id>
-  return render_template('forms/edit_venue.html', form=form, venue=venue)
+  genres = json_genres()
+  return render_template('forms/edit_venue.html', form=form, venue=venue, genres=genres)
 
 @app.route('/venues/<int:venue_id>/edit', methods=['POST'])
 def edit_venue_submission(venue_id):
-  print("hit edit venue")
-  # TODO: take values from the form submitted, and update existing
-  # venue record with ID <venue_id> using the new attributes
-  # return redirect(url_for('show_venue', venue_id=venue_id))
+  """
+  recieve artist edit form as POST and commit it to database
+  """
+  venue = VenueObj().get_venue(venue_id)
+  data = venue.edit_venue(request.form)
+  flash(data["flash_msg"])
+  return redirect(url_for('show_venue', venue_id=venue_id))
 
 #  Create Artist
 #  ----------------------------------------------------------------
 
 @app.route('/artists/create', methods=['GET'])
 def create_artist_form():
+  """
+  render new artist form
+  """
   form = ArtistForm()
-  return render_template('forms/new_artist.html', form=form)
+  genres = json_genres()
+  return render_template('forms/new_artist.html', form=form, genres=genres)
 
 @app.route('/artists/create', methods=['POST'])
 def create_artist_submission():
-  # called upon submitting the new artist listing form
-  # TODO: insert form data as a new Venue record in the db, instead
-  # TODO: modify data to be the data object returned from db insertion
-  status = ArtistObj().form_artist(request.form)
-  print(status)
-
-  # on successful db insert, flash success
-  flash('Artist ' + request.form['name'] + ' was successfully listed!')
-  # TODO: on unsuccessful db insert, flash an error instead.
-  # e.g., flash('An error occurred. Artist ' + data.name + ' could not be listed.')
-  # return url_for('artists')
-
+  """
+  recieve information for new artist as POST and commit it to database
+  """
+  data = ArtistObj().form_artist(request.form)
+  flash(data["flash_msg"])
+  return redirect(url_for('artists'))
 
 #  Shows
 #  ----------------------------------------------------------------
 
 @app.route('/shows')
 def shows():
-  # displays list of shows at /shows
-  # TODO: replace with real venues data.
-  data=[{
-    "venue_id": 1,
-    "venue_name": "The Musical Hop",
-    "artist_id": 4,
-    "artist_name": "Guns N Petals",
-    "artist_image_link": "https://images.unsplash.com/photo-1549213783-8284d0336c4f?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=300&q=80",
-    "start_time": "2019-05-21T21:30:00.000Z"
-  }, {
-    "venue_id": 3,
-    "venue_name": "Park Square Live Music & Coffee",
-    "artist_id": 5,
-    "artist_name": "Matt Quevedo",
-    "artist_image_link": "https://images.unsplash.com/photo-1495223153807-b916f75de8c5?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=334&q=80",
-    "start_time": "2019-06-15T23:00:00.000Z"
-  }, {
-    "venue_id": 3,
-    "venue_name": "Park Square Live Music & Coffee",
-    "artist_id": 6,
-    "artist_name": "The Wild Sax Band",
-    "artist_image_link": "https://images.unsplash.com/photo-1558369981-f9ca78462e61?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=794&q=80",
-    "start_time": "2035-04-01T20:00:00.000Z"
-  }, {
-    "venue_id": 3,
-    "venue_name": "Park Square Live Music & Coffee",
-    "artist_id": 6,
-    "artist_name": "The Wild Sax Band",
-    "artist_image_link": "https://images.unsplash.com/photo-1558369981-f9ca78462e61?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=794&q=80",
-    "start_time": "2035-04-08T20:00:00.000Z"
-  }, {
-    "venue_id": 3,
-    "venue_name": "Park Square Live Music & Coffee",
-    "artist_id": 6,
-    "artist_name": "The Wild Sax Band",
-    "artist_image_link": "https://images.unsplash.com/photo-1558369981-f9ca78462e61?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=794&q=80",
-    "start_time": "2035-04-15T20:00:00.000Z"
-  }]
+  """
+  display all shows
+  """
+  data = expand_shows()
   return render_template('pages/shows.html', shows=data)
 
 @app.route('/shows/create')
 def create_shows():
-  # renders form. do not touch.
+  """
+  render create_shows form
+  """
   form = ShowForm()
   return render_template('forms/new_show.html', form=form)
 
 @app.route('/shows/create', methods=['POST'])
 def create_show_submission():
+
   # called to create new shows in the db, upon submitting new show listing form
   # TODO: insert form data as a new Show record in the db, instead
-
+  
   # on successful db insert, flash success
   flash('Show was successfully listed!')
   # TODO: on unsuccessful db insert, flash an error instead.
   # e.g., flash('An error occurred. Show could not be listed.')
   # see: http://flask.pocoo.org/docs/1.0/patterns/flashing/
   # return render_template('pages/home.html')
+  return redirect(url_for('create_shows'))
 
 #  Error Handling
 #  ----------------------------------------------------------------

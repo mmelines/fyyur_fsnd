@@ -203,6 +203,18 @@ h2.monospace {
 .form-inline .form-group {
   width: 50%;
 }
+.group-dual {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+}
+.form-subgroup label {
+  font-weight: 500;
+}
+.form-subgroup {
+  width: 47%;
+  margin-right: 3%;
+}
 .form-inline .form-control {
   width: 100%;
 }
