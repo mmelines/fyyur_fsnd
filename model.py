@@ -49,7 +49,7 @@ class Show(db.Model):
     artist_id=db.Column(db.Integer, db.ForeignKey('artist.id'), nullable=False)
     start_time=db.Column(db.DateTime, nullable=False)
     end_time=db.Column(db.DateTime, nullable=False)
-    all_day=db.Column(db.Boolean)
+    all_day=db.Column(db.Boolean, default=False)
 
 class Genre(db.Model):
     __tablename__="genre"
@@ -63,6 +63,18 @@ class ArtistGenre(db.Model):
     id=db.Column(db.Integer, primary_key=True)
     artist_id=db.Column(db.Integer, db.ForeignKey('artist.id'), nullable=False)
     genre_id=db.Column(db.Integer, db.ForeignKey('genre.id'), nullable=False)
+
+class ArtistAvail(db.Model):
+    __tablename__="artist_avail"
+
+    id=db.Column(db.Integer, db.ForeignKey('artist.id'), primary_key=True)
+    sun = db.Column(db.Boolean, default=True)
+    mon = db.Column(db.Boolean, default=True)
+    tue = db.Column(db.Boolean, default=True)
+    wed = db.Column(db.Boolean, default=True)
+    thu = db.Column(db.Boolean, default=True)
+    fri = db.Column(db.Boolean, default=True)
+    sat = db.Column(db.Boolean, default=True)
 
 class VenueGenre(db.Model):
     __tablename__="venue_genre"
