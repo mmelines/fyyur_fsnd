@@ -1,24 +1,58 @@
 {% extends 'layouts/main.html' %}
 {% block title %}New Show Listing{% endblock %}
 {% block content %}
+<div class="form-layout">
   <div class="form-wrapper">
     <form method="post" class="form">
       <h3 class="form-heading">List a new show</h3>
-      <div class="form-group">
+      <div class="form-group" id="artist-id-group">
         <label for="artist_id">Artist ID</label>
         <small>ID can be found on the Artist's Page</small>
-        {{ form.artist_id(class_ = 'form-control', autofocus = true) }}
+        {{ form.artist_id(class_ = 'form-control empty-load', autofocus = true) }}
       </div>
-      <div class="form-group">
+      <div class="form-group" id="venue-id-group">
         <label for="venue_id">Venue ID</label>
         <small>ID can be found on the Venue's Page</small>
-        {{ form.venue_id(class_ = 'form-control', autofocus = true) }}
+          {{ form.venue_id(class_ = 'form-control empty-load', autofocus = true) }}
       </div>
       <div class="form-group">
-          <label for="start_time">Start Time</label>
-          {{ form.start_time(class_ = 'form-control', placeholder='YYYY-MM-DD HH:MM', autofocus = true) }}
+        <label for="start_date"><span class="hidden end-date-group">Start </span>Date</label>
+        {{ form.start_date(class_ = 'form-control empty-load', autofocus=true)}}
+      </div>
+      <div class="form-group">
+        <input type="checkbox" id="all-day" class="cbx"></input>
+        <label for="all-day">This is an all-day event</label>
+      </div>
+      <div class="form-group time-group">
+        <label>Event Schedule</label>
+        <small>Enter in HH:MM AM/PM format</small>
+      </div>
+      <div class="form-group group-dual">
+        <div class="time-group form-subgroup">
+            <label for="start_time">Start</label>
+            {{ form.start_time(class_ = 'form-control empty-load', placeholder='HH:MM', autofocus = true) }}
         </div>
+        <div class="time-group form-subgroup">
+            <label for="end_time">End</label>
+            {{ form.end_time(class_ = 'form-control empty-load', autofocus = true) }}
+        </div>
+      </div>
+      <div class="form-group time-group" id="time-error-row">
+        <div id="time-error"></div>
+      </div>
+      <div class="form-group">
+        <input type="checkbox" id="multi-day" class="cbx"></input>
+        <label for="multi-day">This event lasts multiple days</label>
+      </div>
+      <div class="form-group hidden end-date-group">
+        <label for="end_date">End Date</label>
+        {{ form.end_date(class_='form-control empty-load', autofocus=true)}}
+      </div>
       <input type="submit" value="Create Venue" class="btn btn-primary btn-lg btn-block">
     </form>
+    <script type="text/javascript" src="{{ url_for('static', filename='js/create_show.js')  }}"></script>
   </div>
+  <div class="show-preview">
+  </div>
+</div>
 {% endblock %}
