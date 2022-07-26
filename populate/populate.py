@@ -858,6 +858,7 @@ class CliCtl:
         self.commit_genres()
         self.gen_entities(self.entity_prompt())
         logging.info("completed .__init__")
+        self.correlate_genres()
 
     def __repr__():
         """
@@ -1162,9 +1163,31 @@ class CliCtl:
         ensures each artist and venue has correlating ArtistGenre and VenueGenre
         runs after initial population
         """
-        __init__(self):
-            
 
+        def artists():
+            """
+            iterate through artist list
+            """
+            print("called artists")
+            artist_list = global_obj.artist_ids[::]
+            print(artist_list)
+            for artist_id in artist_list:
+                print(artist_id)
+                genre_list = Select().get_entity_genres("artist", artist_id)
+                print(genre_list)
+                for genre_id in genre_list:
+                    print("    > " + str(genre_id))
+                    print()
+            return False
+        
+        def venues():
+            """
+            iterate through venue list
+            """
+            return None
+        
+        return [artists(), venues()]
+            
     @staticmethod
     def clear_db():
         """
@@ -1667,6 +1690,23 @@ class Select(DbData):
         self.log_return("get_genres", genres=self.result)
         self.log("out", "get_genres")
         return self.result
+    
+    def get_entity_genres(self, entity_type, entity_id):
+        """
+        get genre list from artist or venue
+        """
+        self.log("call", "get_entity_genres")
+        self.query = "SELECT genres FROM " + entity_type + " WHERE id='%s';"
+        self.value_list = [entity_id]
+        print(self)
+        self.result = self.get()
+        print(self)
+        self.log_return("get_entity_genres", genre_string=self.result)
+        self.log("out", "genre_id")
+        try:
+            return self.result[0].split(",")
+        except:
+            return []
 
 class Insert(DbData):
     """
