@@ -916,8 +916,10 @@ def verify_venue(venue_id):
   """
   verifies venue id exists in database
   """
+  verified_venue = Venue.query.get(venue_id)
   try:
-    verification = {"name": Venue.query.get(venue_id).name}
+    verification = {"name": verified_venue.name,
+                    "img": verified_venue.image_link}
   except:
     verification = {"name": False}
   print("hit " + str(venue_id) + " with a " + str(verification))

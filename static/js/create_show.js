@@ -170,6 +170,13 @@ var eventTime = {
                 'minutes': false}
 };
 
+var new_event = {
+    "venue_name": false,
+    "venue_image_link": false,
+    "artist_name": false,
+    "artist_image_link": false
+};
+
 /* ----------------------------------------------------------------------
 *  event listeners
 * ---------------------------------------------------------------------- */
@@ -255,7 +262,7 @@ const acceptEndDate = function (event) {
 };
 
 /* ----------------------------------------------------------------------
-*  toggle display functions
+*  toggle display functions for form load
 * ---------------------------------------------------------------------- */
 const toggleHiddenClass = function(class_name, visibility) {
     /*
@@ -299,6 +306,17 @@ const toggleMultiDay = function(event) {
         // not multi-day
         toggleHiddenClass("end-date-group", false);
     }
+}
+/* ----------------------------------------------------------------------
+*  toggle display functions for event preview
+* ---------------------------------------------------------------------- */
+const previewArtist = function(artist_data) {
+    var data = {"name": artist_data.name,
+                "img": artist_data.img,
+                "entity_type": "artist"};
+}
+const previewVenue = function(venue_data) {
+
 }
 
 /* ----------------------------------------------------------------------
@@ -431,8 +449,12 @@ const verifyResponse = async function(path) {
             return response.json()
         })
         .then(function(jsonResponse) {
+            var entity_value = {
+                "name": false,
+                "image_link": false}
             if (typeof(jsonResponse['name']) == 'string') {
-                entity_value = jsonResponse['name'];
+                entity_value["name"] = jsonResponse['name'];
+                entity_value["image_link"] = jsonResponse["img"]
             } else {entity_value = -1;}
             return entity_value;
         }
@@ -468,8 +490,16 @@ const verifyId = async function(entity_type, event) {
         default:
             verification['to_exist'] = true;
             verification['success'] = true;
-            verification['msg'] = confirmValidId(reply, entity_type);
+            verification['msg'] = confirmValidId(reply["name"], entity_type);
             event.target.value = id;
+            if (entity_type=="artist") {
+                previewArtist(reply);
+            };
+            if (entity_type=="venue") {
+                previewVenue(reply);
+            }
+            console.log("VERIFIED");
+            console.log(reply);
     };
     toggleChildMsg(verification);
 }
