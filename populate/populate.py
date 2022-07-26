@@ -489,6 +489,7 @@ class ThinData:
         """
         init instance of RdDb item
         """
+        print("\n\nThanks for running populate.py. This will be fun!")
         self.log("call", "__init__")
         self.locs = {}
         self.log_global = 0
@@ -609,11 +610,14 @@ class ThinData:
         finds existing records for artist, venue and show ids and
           adds their IDs to the global model
         """
+        print("\nGenerating temporary model.")
+        print("This may take some time if the existing db is large.")
         if retain_blank == False:
             self.artist_ids = Select().get_entity_ids("artist")
             self.venue_ids = Select().get_entity_ids("venue")
             self.show_ids = Select().get_entity_ids("show")
             self.model = self.append_existing()
+        print("\nModel complete! Let's get started.")
 
     def append_venue(self, extant, loc, v_id):
         """
@@ -670,7 +674,6 @@ class ThinData:
                 success = True
             except:
                 self.log("append_global_id", "err", error_code=1)
-                print("1")
         if obj["id"] not in ext_dest and obj["extant"] == True:
             try:
                 ext_dest.append(obj["id"])
@@ -860,6 +863,12 @@ class CliCtl:
         self.gen_entities(self.entity_prompt())
         logging.info("completed .__init__")
         self.correlate_genres()
+        msg = "DB seed complete.\nExplore the bands, venues and shows just"
+        msg += " created by"
+        msg += " following the local\ninstallation instructions in the "
+        msg += " README.md file in the root folder.\nThe calendar is packed!\n"
+        msg += "Hope you brought your own snacks!\nAnd, uh, water.\n"
+        print(msg)
 
     def __repr__():
         """
@@ -966,9 +975,15 @@ class CliCtl:
         diplays cli input menu to get number of entities to create
         """
         logging.info("called CliCtl.entity_prompt")
-        prompt = "\nEnter number of %s entities to create now:\n(%s already"
+        prompt = "\nEnter number of %s entities to create now: (%s already"
         prompt += " exist)"
-        confirm_zero = "\nNo new %ss will be created"
+        explain_shows = "NOTE: the number of shows you enter will be created "
+        explain_shows += " for EACH existing artist and venue entity in the db."
+        explain_shows += "\nFor example, if you enter 4 shows and have 10 "
+        explain_shows += "artists and 10 genres then 4 *additional* shows\n"
+        explain_shows += " will be created for EACH artist and EACH venue."
+        explain_shows += " This is fun, but can take a while."
+        confirm_zero = "\nNo new %ss will be created."
         entities = [0, 0, 0]
         # prompt for n Artists
         if 'artists' in global_obj.model.keys():
@@ -987,11 +1002,11 @@ class CliCtl:
         # 
         if 'shows' in global_obj.model.keys():
             print(prompt % ("Show", str(len(global_obj.model["shows"]))))
+            print(explain_shows)
             new_shows = self.valid_int(1, 20, True)
             if new_shows == 0:
                 print(confirm_zero % ("show"))
             entities[2] = new_shows
-        print("entity_prompt returning " + str(entities))
         logging.debug("CliCtl.entity_prompt returning entites" + str(entities))
         logging.info("CliCtl.entity_prompt completed")
         return entities
@@ -1008,12 +1023,11 @@ class CliCtl:
             """
             new_entities = 0
             backup_count = 0
-            success = False
             while new_entities < goal and backup_count < goal * 5:
-                print("tried")
                 ent = None
                 if ent_type == "artist":
                     ent = self.make_artist()
+                    self.make_artist_avail(ent)
                 if ent_type == "venue":
                     ent = self.make_venue()
                 if not ent is None:
@@ -1021,37 +1035,36 @@ class CliCtl:
                     new_entities += 1
                 backup_count += 1
             if new_entities == goal:
-                success = True
-            return success
+                msg = ">> Created " + str(new_entities) + " new " + ent_type
+                msg += " records"
+            else:
+                msg = ent_type + " creation failed. See log output for more "
+                msg += "info. \nLogs can be found in project_root/poplog.log"
+            print(msg + "\n")
+            return new_entities == goal
 
         logging.info("called CliCtl.gen_entities")
         msg = "Generating "
         msg += str(entities[0]) + " Artist entities"
         msg += ", " + str(entities[1]) + " Venue entities"
-        msg += ", " + str(entities[2]) + " Show entities."
+        msg += ", " + str(entities[2]) + " Show entities.\n"
         print(msg)
         loop_control = True
-        print(loop_control)
         if entities[0] > 0:
             loop_control = match_count(entities[0], "artist")
-            print(loop_control)
             entities[0] == loop_control
         if entities[1] > 0 and loop_control == True:
             loop_control = match_count(entities[1], "venue")
-            print(loop_control)
             entities[1] == loop_control
         if entities[2] > 0 and loop_control:
             loop_control == self.make_all_shows(entities[2])
-            print(loop_control)
             entities[2] == loop_control
         logging.debug("CliCtl.gen_entities returning None (default)")
         logging.info("CliCtl.gen_entities completed")
 
     def make_artist(self):
         ent = Artist()
-        print(ent.__repr__)
         if isinstance(ent.id, int) and ent.id > 0:
-            print("tried")
             status = global_obj.append_artist(False, ent.city, ent.id)
             if status == True:
                 self.new_artists += 1
@@ -1063,6 +1076,23 @@ class CliCtl:
             self.log("make_artist", "err", error_code=16)
             ent = None
         return ent
+    
+    def make_artist_avail(self, artist_entity):
+        logging.info("called make_artist_availability")
+        if (not artist_entity is None):
+            if (isinstance(artist_entity.id, int)):
+                artist_id = artist_entity.id
+                max_tries = 5
+                i = 0
+                while i < max_tries:
+                    ent = ArtistAvailability(artist_id)
+                    if (isinstance(ent.id, int)):
+                        return ent
+                    i += 1
+                msg = "make artist_entity for artist " + str(artist_id)
+                msg += "failed after "+str(max_tries)+" tries"
+                logging.debug()
+        logging.debug("skipping artist_avail for NoneType Artist")
 
     def make_venue(self):
         ent = Venue()
@@ -1108,7 +1138,6 @@ class CliCtl:
         """
         show_counter = 0
         backup_counter = 0
-        msg = " shows for " + obj["source"] + " # " + str(obj["source_id"])
         while show_counter < obj["goal"] and backup_counter < obj["goal"]*5:
             if obj["source"] == "artist":
                 ent = Show(artist_id=obj["source_id"])
@@ -1127,11 +1156,12 @@ class CliCtl:
         create slightly randomized number of shows for all existing artist
         and venue entities
         """
-        if amount < 3:
-            amount = 3
+        if amount < 1:
+            amount = 1
         s_list = []
         failures = []
         total_shows = 0
+        print("Generating shows...\n")
         for a_id in global_obj.model["artists"]:
             s_list.append([a_id, "artist", len(Select().get_artist_shows(a_id))])
         for v_id in global_obj.model["venues"]:
@@ -1139,12 +1169,13 @@ class CliCtl:
         for item in s_list:
             obj = {"source": item[1],
                     "source_id": item[0],
-                    "goal": random.choice(range(amount, amount+5)) - item[2]}
+                    "goal": amount}
             result = self.make_shows(obj)
             if result is None:
                 failures.append(obj)
             if isinstance(result, int):
                 total_shows += result
+        print(">> Created " + str(total_shows) + " new shows.")
         return [total_shows, failures]
 
     def decide_amount(self, amount):
@@ -1165,7 +1196,8 @@ class CliCtl:
         delete every existing record from the database
         """
         successes = 0
-        for entity in ["show", "artist", "venue", "genre"]:
+        for entity in ["show", "artist_avail", "artist_genre", 
+                        "artist", "venue_genre", "venue"]:
             query = "DELETE FROM " + entity + ";"
             result = DbData("delete", query)
             if result == "success":
@@ -1177,6 +1209,7 @@ class CliCtl:
         in the database
         """
         genre_count = Select().count_total("genre")[0]
+        print("\nConfirming all the right genres exist.")
         self.log("call", "commit_genres")
         if genre_count < len(RdDb.genre_list):
             existing_genres = []
@@ -1197,6 +1230,7 @@ class CliCtl:
                     existing_genres.append(genre_name)
         else:
             existing_genres = RdDb.genre_list[::]
+        print("Got them! Adding genres to temporary model.")
         for genre_name in existing_genres:
             genre_id = Select().verify_genre(genre_name)
             if isinstance(genre_id, list) and len(genre_id) == 1:
@@ -1235,6 +1269,7 @@ class CliCtl:
                     genre_id = global_obj.genres[genre_name]
                     gen = VenueGenre(genre_id, venue_id)
 
+        print("\nFinalizing...\n")
         artists()
         venues()
 
@@ -1703,9 +1738,7 @@ class Select(DbData):
         self.log("call", "get_entity_genres")
         self.query = "SELECT genres FROM " + entity_type + " WHERE id='%s';"
         self.value_list = [entity_id]
-        print(self)
         self.result = self.get()
-        print(self)
         self.log_return("get_entity_genres", genre_string=self.result)
         self.log("out", "genre_id")
         try:
@@ -2427,11 +2460,67 @@ class ArtistGenre(DbData):
         self.artist_id = artist_id
         self.genre_id = genre_id
         self.id = Insert(self).id
-        print(self.id)
 
     def __iter__(self):
         yield("artist_id", self.artist_id)
         yield("genre_id", self.genre_id)
+
+# --- Artist Availability object class
+
+class ArtistAvailability():
+    """
+    holds regular weekly schedule of artist's availability
+    """
+    def __init__(self, artist_id):
+        """
+        init instance of artist availability
+        """
+        self.entity_type = "artist_avail"
+        self.artist_id = artist_id
+        self.sun = True
+        self.mon = True
+        self.tue = True
+        self.wed = True
+        self.thu = True
+        self.fri = True
+        self.sat = True
+        self.week = self.form_week()
+        if (random.choice([True, False])):
+            self.randomize()
+        self.id = Insert(self).id
+    
+    def form_week(self):
+        return [self.sun, self.mon, self.tue, self.wed, self.thu, self.fri,
+            self.sat]
+    
+    def randomize(self):
+        i = 0
+        week = []
+        while i < 7:
+            week.append(random.choice([True, True, False]))
+            i += 1
+        self.sun = week[0]
+        self.mon = week[1]
+        self.tue = week[2]
+        self.wed = week[3]
+        self.thu = week[4]
+        self.fri = week[5]
+        self.sat = week[6]
+        self.week = self.form_week()
+    
+    def __iter__(self):
+        yield("id", self.artist_id)
+        yield("mon", self.mon)
+        yield("tue", self.tue)
+        yield("wed", self.wed)
+        yield("thu", self.thu)
+        yield("fri", self.fri)
+        yield("sat", self.sat)
+    
+    def __repr__(self):
+        msg = "artist id: " + str(self.artist_id) + " availability - "
+        msg += str(self.week)
+        return msg
 
 # --- Venue Genre object class
 
