@@ -831,6 +831,7 @@ class ThinData:
                 new_genre = Genre(genre_name)
                 self.genre_ids.append(new_genre.id)
                 self.genres[genre_name] = new_genre.id
+                self.genres[new_genre.id] = genre_name
                 self.log("out", "new_genre", add=genre_name)
             else:
                 self.log("out", "new_genre", find=genre_name)
@@ -1157,36 +1158,6 @@ class CliCtl:
             amount_bottom = amount-4
         amount = random.choice(range(amount_bottom, amount_top))
         return amount
-
-    def correlate_genres(self):
-        """
-        ensures each artist and venue has correlating ArtistGenre and VenueGenre
-        runs after initial population
-        """
-
-        def artists():
-            """
-            iterate through artist list
-            """
-            print("called artists")
-            artist_list = global_obj.artist_ids[::]
-            print(artist_list)
-            for artist_id in artist_list:
-                print(artist_id)
-                genre_list = Select().get_entity_genres("artist", artist_id)
-                print(genre_list)
-                for genre_id in genre_list:
-                    print("    > " + str(genre_id))
-                    print()
-            return False
-        
-        def venues():
-            """
-            iterate through venue list
-            """
-            return None
-        
-        return [artists(), venues()]
             
     @staticmethod
     def clear_db():
@@ -1232,6 +1203,40 @@ class CliCtl:
                 global_obj.genres[genre_name] = genre_id[0]
                 global_obj.genre_ids.append(genre_id[0])
         self.log("out", "commit_genres")
+    
+    def correlate_genres(self):
+        """
+        ensures each artist and venue has correlating ArtistGenre and VenueGenre
+        runs after initial population
+        """
+
+        def artists():
+            """
+            iterate through artist list, adding artist_genre relation for each
+                genre in artist_id list
+            """
+            artist_list = global_obj.artist_ids[::]
+            for artist_id in artist_list:
+                genre_list = Select().get_entity_genres("artist", artist_id)
+                for genre_name in genre_list:
+                    genre_id = global_obj.genres[genre_name]
+                    gen = ArtistGenre(genre_id, artist_id)
+            return False
+        
+        def venues():
+            """
+            iterate through venue list
+            """
+            venue_list = global_obj.venue_ids[::]
+            i = 0
+            for venue_id in venue_list:
+                genre_list = Select().get_entity_genres("venue", venue_id)
+                for genre_name in genre_list:
+                    genre_id = global_obj.genres[genre_name]
+                    gen = VenueGenre(genre_id, venue_id)
+
+        artists()
+        venues()
 
 #  ----------------------------------------------------------------------------
 # / Database modification & retrieval classes for psycopg2
@@ -2418,10 +2423,11 @@ class ArtistGenre(DbData):
         """
         init instance of ArtistGenre class
         """
-        self.entity_type = "artist_genres"
+        self.entity_type = "artist_genre"
         self.artist_id = artist_id
         self.genre_id = genre_id
         self.id = Insert(self).id
+        print(self.id)
 
     def __iter__(self):
         yield("artist_id", self.artist_id)
@@ -2438,7 +2444,7 @@ class VenueGenre(DbData):
         """
         instance of ArtistGenre class
         """
-        self.entity_type = "venue_genres"
+        self.entity_type = "venue_genre"
         self.venue_id = venue_id
         self.genre_id = genre_id
         self.id = Insert(self).id
