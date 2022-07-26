@@ -669,11 +669,8 @@ class ThinData:
                 dest.append(obj["id"])
                 success = True
             except:
-<<<<<<< HEAD
                 self.log("append_global_id", "err", error_code=1)
-=======
                 print("1")
->>>>>>> controllers
         if obj["id"] not in ext_dest and obj["extant"] == True:
             try:
                 ext_dest.append(obj["id"])
@@ -827,7 +824,7 @@ class ThinData:
         """
         self.log("call", "new_genre")
         if not genre_name in self.genres:
-            #find id genre_name in genres database
+            # find id genre_name in genres database
             result = Select().verify_genre(genre_name)
             # if genre_name doesn't exist in the database, add it
             if result == False or result == -1:
@@ -1159,6 +1156,14 @@ class CliCtl:
             amount_bottom = amount-4
         amount = random.choice(range(amount_bottom, amount_top))
         return amount
+
+    def correlate_genres(self):
+        """
+        ensures each artist and venue has correlating ArtistGenre and VenueGenre
+        runs after initial population
+        """
+        __init__(self):
+            
 
     @staticmethod
     def clear_db():
@@ -2362,13 +2367,16 @@ class Genre(DbData):
     def __iter__(self):
         yield ("name", self.name)
 
+# --- Artist Genre object class
+
 class ArtistGenre(DbData):
     """
-    instance of ArtistGenre class; relates artist_id and genre_id in record
+    relates artist_id and genre_id in record
     """
 
     def __init__(self, genre_id, artist_id):
         """
+        init instance of ArtistGenre class
         """
         self.entity_type = "artist_genres"
         self.artist_id = artist_id
@@ -2379,12 +2387,17 @@ class ArtistGenre(DbData):
         yield("artist_id", self.artist_id)
         yield("genre_id", self.genre_id)
 
+# --- Venue Genre object class
+
 class VenueGenre(DbData):
     """
-    instance of ArtistGenre class; relates artist_id and venue_id in record
+    relates artist_id and venue_id in record
     """
 
     def __init__(self, genre_id, venue_id):
+        """
+        instance of ArtistGenre class
+        """
         self.entity_type = "venue_genres"
         self.venue_id = venue_id
         self.genre_id = genre_id
