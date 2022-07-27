@@ -339,8 +339,6 @@ class Obj:
     yield ("phone", self.phone)
     if hasattr(self, 'address'):
       yield("address", self.address)
-    if hasattr(self, 'self.availability'):
-      yield("availability")
     yield ("image_link", self.image_link)
     yield ("facebook_link", self.facebook_link)
     yield ("genres", self.genres)
@@ -348,6 +346,8 @@ class Obj:
     yield ("seeking_description", self.seeking_description)
     yield ("has_image", self.has_image)
     yield ("shows", self.shows)
+    yield ("past_shows", self.past_shows)
+    yield ("upcoming_shows", self.upcoming_shows)
 
   def __repr__(self):
     """
@@ -477,7 +477,6 @@ class ArtistObj(Obj):
     """
     super().__init__() #inherit entity base class
     self.entity_type = "artist"
-    self.availability = []
 
   def get_artist(self, artist_id):
     """
@@ -542,9 +541,9 @@ class ArtistObj(Obj):
       week[6]["value"] = avail.sat
     except: 
       week = {0: False}
-    self.availability = week
-    pprint(self)
-    return self
+    artist = self.return_json()
+    artist["availability"] = week
+    return artist
 
 class VenueObj(Obj):
   """
@@ -1021,6 +1020,7 @@ def show_artist(artist_id):
   artist = ArtistObj().get_artist(artist_id)
   artist = artist.set_shows()
   artist = artist.set_avail()
+  print(artist)
   return render_template('pages/show_artist.html', artist=artist)
 
 @app.route('/artists/<artist_id>/verify')
