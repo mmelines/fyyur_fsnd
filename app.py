@@ -117,7 +117,6 @@ class Obj:
     """
     json_dict = {}
     for item in self:
-      print(item)
       json_dict[item[0]] = item[1]
     self.json = json_dict
     return json_dict
@@ -340,6 +339,8 @@ class Obj:
     yield ("phone", self.phone)
     if hasattr(self, 'address'):
       yield("address", self.address)
+    if hasattr(self, 'self.availability'):
+      yield("availability")
     yield ("image_link", self.image_link)
     yield ("facebook_link", self.facebook_link)
     yield ("genres", self.genres)
@@ -476,6 +477,7 @@ class ArtistObj(Obj):
     """
     super().__init__() #inherit entity base class
     self.entity_type = "artist"
+    self.availability = []
 
   def get_artist(self, artist_id):
     """
@@ -517,6 +519,32 @@ class ArtistObj(Obj):
     status = self.create_edit(obj)
     data = self.flash(status)
     return data
+  
+  def set_avail(self):
+    try:
+      avail = ArtistAvail.query.get(self.id)
+      strs = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", 
+        "Saturday"]
+      chars = ["U", "M", "T", "W", "R", "F", "S"]
+      i = 0
+      week = {}
+      for str in strs:
+        day = {"name": str,
+              "abbr": chars[i]}
+        week[i] = day
+        i += 1
+      week[0]["value"] = avail.sun
+      week[1]["value"] = avail.mon
+      week[2]["value"] = avail.tue
+      week[3]["value"] = avail.wed
+      week[4]["value"] = avail.thu
+      week[5]["value"] = avail.fri
+      week[6]["value"] = avail.sat
+    except: 
+      week = {0: False}
+    self.availability = week
+    pprint(self)
+    return self
 
 class VenueObj(Obj):
   """
@@ -990,7 +1018,9 @@ def show_artist(artist_id):
   """
   shows the artist page with the given artist_id
   """
-  artist = ArtistObj().get_artist(artist_id).set_shows()
+  artist = ArtistObj().get_artist(artist_id)
+  artist = artist.set_shows()
+  artist = artist.set_avail()
   return render_template('pages/show_artist.html', artist=artist)
 
 @app.route('/artists/<artist_id>/verify')
@@ -1015,9 +1045,11 @@ def edit_artist(artist_id):
   return artist edit form populated with current artist data
   """
   artist = ArtistObj().get_artist(artist_id)
+  artist = artist.set_avail()
   form = ArtistForm()
   genres = json_genres()
-  return render_template('forms/edit_artist.html', form=form, artist=artist, genres=genres)
+  return render_template('forms/edit_artist.html', form=form, artist=artist, 
+    genres=genres)
 
 @app.route('/artists/<artist_id>/edit', methods=["POST"])
 def edit_artist_submission(artist_id):
