@@ -2510,6 +2510,7 @@ class ArtistAvailability():
     
     def __iter__(self):
         yield("id", self.artist_id)
+        yield("sun", self.sun)
         yield("mon", self.mon)
         yield("tue", self.tue)
         yield("wed", self.wed)
