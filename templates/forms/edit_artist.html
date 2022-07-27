@@ -55,7 +55,21 @@
             <label for="website_link">Website Link</label>
             {{ form.website_link(class_ = 'form-control', placeholder='http://', autofocus = true) }}
       </div>
-
+      <div class="form-group">
+        <div id="avail-container">
+          <div id="avail-week" class="avail">
+            <div id="avail-label">
+              weekly<br>
+              availability:
+            </div>
+            {% for day_int, date in artist.availability.items() %}
+              <div id="avail-{{day_int}}" alt="{{date.name}}" class="avail-day avail-{{date.value|lower}}">
+                {{date.abbr}}
+              </div> 
+            {% endfor %}
+          </div>
+        </div>
+      </div>
       <div class="form-group">
           <label for="seeking_venue">Looking for Venues</label>
           {{ form.seeking_venue(placeholder='Venue', autofocus = true) }}
@@ -69,7 +83,7 @@
       <input id="submit-btn" type="submit" value="Edit Artist" onclick="presubmit(event)" class="btn btn-primary btn-lg btn-block">
     </form>
     <script>
-      var artist = {{artist | tojson}};
+      var artist = {{artist}};
       var genres = {{genres | tojson}};
     </script>
     <script type="text/javascript" src="{{ url_for('static', filename='js/edit_form.js')  }}"></script>
