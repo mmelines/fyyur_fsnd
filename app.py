@@ -1020,7 +1020,6 @@ def show_artist(artist_id):
   artist = ArtistObj().get_artist(artist_id)
   artist = artist.set_shows()
   artist = artist.set_avail()
-  print(artist)
   return render_template('pages/show_artist.html', artist=artist)
 
 @app.route('/artists/<artist_id>/verify')
