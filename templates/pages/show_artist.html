@@ -26,6 +26,23 @@
 		<p>
 			<i class="fab fa-facebook-f"></i> {% if artist.facebook_link %}<a href="{{ artist.facebook_link }}" target="_blank">{{ artist.facebook_link }}</a>{% else %}No Facebook Link{% endif %}
         </p>
+		{% if artist.availability %}
+		<div id="avail-container">
+			<div id="avail-week" class="avail">
+				<div id="avail-label">
+					weekly<br>
+					availability:
+				</div>
+				{% for day_int, date in artist.availability.items() %}
+					<div id="avail-{{day_int}}" alt="{{date.name}}" class="avail-day avail-{{date.value|lower}}">
+						{{date.abbr}}
+					</div> 
+				{% endfor %}
+			</div>
+		</div>
+		
+		
+		{% endif %}
 		{% if artist.seeking_venue %}
 		<div class="seeking">
 			<p class="lead">Currently seeking performance venues</p>
@@ -38,6 +55,13 @@
 			<i class="fas fa-moon"></i> Not currently seeking performance venues
 		</p>
 		{% endif %}
+		<div style="padding-top: 3em;">
+			<a href="/artists/{{ artist.id }}/edit">
+				<button class="btn btn-primary btn-lg">
+					Edit
+				</button>
+			</a>
+		</div>
 	</div>
 	{% if artist.image_link | length > 0%}
 		<div class="col-sm-6">
@@ -74,7 +98,7 @@
 	</div>
 </section>
 
-<a href="/artists/{{ artist.id }}/edit"><button class="btn btn-primary btn-lg">Edit</button></a>
+
 
 {% endblock %}
 

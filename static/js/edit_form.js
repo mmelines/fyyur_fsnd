@@ -1,9 +1,13 @@
 const init_existing = function() {
 	// populate form with the entity's existing values from database query
 	for (let attribute of Object.keys(entity)) {
-		if (!["genres", "id", "shows", "has_image", "is_seeking"].includes(attribute)) {
+		if (!["genres", "id", "shows", "has_image", "is_seeking", "past_shows", "upcoming_shows", "availability"].includes(attribute)) {
 			form_div = document.getElementById(attribute);
-			form_div.value = entity[attribute];
+			if (form_div) {
+				form_div.value = entity[attribute];
+			} else {
+				console.log("WARN did not locate " + attribute);
+			}
 		}
 	}
 }
