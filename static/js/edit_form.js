@@ -177,10 +177,12 @@ const presubmit = function(e) {
 		// process select genres and add them to list
 		current_values = document.getElementById('current-genres').innerText;
 		var final_genre_list = document.createElement("input");
+		final_fenre_list.classList.add("hidden");
 		final_genre_list.type = "text";
 		final_genre_list.name = "genres_string";
 		final_genre_list.id = "genres_string";
 		final_genre_list.value = current_values;
+		artist_avail.classList.add("hidden");
 		return final_genre_list;
 	};
 
@@ -189,10 +191,12 @@ const presubmit = function(e) {
 		image_link has content */
 		image_url = document.getElementById('image_link').value;
 		var final_has_image = document.createElement("input");
+		final_genre_list.classList.add("hidden");
 		final_has_image.type = "checkbox";
 		final_has_image.name = "has_image";
 		final_has_image.id = "has_image";
 		final_has_image.checked = (image_url.length > 0)?true:false;
+		artist_avail.classList.add("hidden");
 		return final_has_image;
 	};
 
@@ -204,6 +208,7 @@ const presubmit = function(e) {
 		}
 		console.log(week);
 		var artist_avail = document.createElement("input");
+		artist_avail.classList.add("hidden");
 		artist_avail.type="text";
 		artist_avail.name = "artist_availability";
 		artist_avail.id = "artist_availability";

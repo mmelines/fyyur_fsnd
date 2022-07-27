@@ -53,6 +53,43 @@
           </div>
 
           <div class="form-group">
+            <div id="avail-container">
+              <div id="avail-week" class="avail">
+                <div id="avail-label">
+                  weekly<br>
+                  availability:
+                </div>
+                <div id="avail-0" class="avail-day avail-true">
+                  U
+                </div>
+                <div id="avail-1" class="avail-day avail-true">
+                  M
+                </div>
+                <div id="avail-2" class="avail-day avail-true">
+                  T
+                </div>
+                <div id="avail-3" class="avail-day avail-true">
+                  W
+                </div>
+                <div id="avail-4" class="avail-day avail-true">
+                  R
+                </div>
+                <div id="avail-5" class="avail-day avail-true">
+                  F
+                </div>
+                <div id="avail-6" class="avail-day avail-true">
+                  S
+                </div>
+              </div>
+            </div>
+            <span style="line-height: .5em;">
+              <small>
+                All week days are available by default.<br>
+                Click a week day to indicate regular weekly unavailable status.
+              </small>
+            </span>
+          </div>
+          <div class="form-group">
               <label for="seeking_venue">Looking for Venues</label>
               {{ form.seeking_venue(placeholder='Venue', autofocus = true) }}
           </div>

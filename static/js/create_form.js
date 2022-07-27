@@ -14,8 +14,6 @@ const select_genre = function(genre_name, genre_id, add_genre) {
 const init_genre_element = function() {
 	// ensure all genres from entity's db query are selected on page load
 	for (genre_option in document.getElementById('genres').options) {
-		console.log("for:");
-		console.log(genre_option)
 		genre_id = genre_option.index;
 		if (Object.values(current_genres).includes(genre_option)) {
 			select_genre(genres[genre_option], genre_option, true);
@@ -35,7 +33,6 @@ const init_genre_display = function() {
 		if (div.innerText != undefined)
 		{
 			const name = div.innerText;
-			console.log("neg eval for " + name);
 			div.addEventListener('click', function() {toggle_genre(div, id, name)});
 		}
 	}
@@ -96,22 +93,101 @@ const toggle_genre = function(div, id, name) {
 	selected_genres = alter_current_genres(name, add_genre);
 };
 
+// ----------------------------------------------------------------
+
+const is_avail = function(target, index) {
+	availability[index] = true;
+	if (target.classList.contains('avail-false')){
+		target.classList.remove('avail-false');
+	};
+	target.classList.add('avail-true');
+}
+
+const not_avail = function(target, index) {
+	availability[index] = false;
+	target.classList.remove('avail-true');
+	target.classList.add('avail-false');
+}
+
+const toggle_availability = function(event) {
+	index = event.target.id.slice(-1, );
+	if (event.target.classList.contains('avail-true')) {
+		not_avail(event.target, index);
+	} else if (event.target.classList.contains('avail-false')) {
+		is_avail(event.target, index);
+	}
+} 
+
+const init_availability = function() {
+	console.log("init availability called");
+	for (let i=0; i<7; i++) {
+		var elem = document.getElementById("avail-"+i);
+		elem.addEventListener('click', (event) => {toggle_availability(event)});
+		if (elem.classList.contains('avail-true')) {
+			availability[i] = true;
+		};
+		if (elem.classList.contains('avail-false')) {
+			availability[i] = false;
+		}
+		if ((!elem.classList.contains('avail-true') && 
+			(!elem.classList.contains('avail-false')))) {
+				is_avail(elem, i);
+			};
+	};
+	console.log(availability);
+}
+
 const presubmit = function(e) {
 	// add string genres_list to form object before form submission
 	// corrects error re: genres selectMultiple intermittently returning only first genre
+	
+	function append_genres() {
+		// process select genres and add them to list
+		current_values = document.getElementById('current-genres').innerText;
+		var final_genre_list = document.createElement("input");
+		final_genre_list.classList.add("hidden");
+		final_genre_list.type = "text";
+		final_genre_list.name = "genres_string";
+		final_genre_list.id = "genres_string";
+		final_genre_list.value = current_values;
+		thisform.append(final_genre_list);
+		return final_genre_list;
+	}
+
+	function append_availability() {
+		console.log(availability);
+		var week = [];
+		for (let i=0; i<7; i++) {
+			week[i] = availability[i];
+		}
+		console.log(week);
+		var artist_avail = document.createElement("input");
+		artist_avail.classList.add("hidden");
+		artist_avail.type="text";
+		artist_avail.name = "artist_availability";
+		artist_avail.id = "artist_availability";
+		artist_avail.value = week;
+		return artist_avail;
+	};
+	
 	thisform = document.forms[0];
-	current_values = document.getElementById('current-genres').innerText;
-	var final_genre_list = document.createElement("input");
-	final_genre_list.type = "text";
-	final_genre_list.name = "genres_string";
-	final_genre_list.id = "genres_string";
-	final_genre_list.value = current_values;
-	thisform.append(final_genre_list);
+	thisform.append(append_genres());
+	if (document.getElementById('avail-container')) {
+		thisform.append(append_availability());
+	}
 }
 
+var availability = {}
 window.onpageshow = function() {
 	console.log("load window"); // confirm this script is linked properly
     genre_elems = document.getElementsByClassName('genre-container');
     current_genres = init_genres();
+	// implement availability event functions 
+	if (document.getElementById('avail-container')) {
+		console.log("has_availability");
+		init_availability();
+	} else {
+		console.log("doesn't have any availability");
+	}
 }
 
