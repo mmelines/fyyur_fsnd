@@ -182,7 +182,7 @@ const presubmit = function(e) {
 		final_genre_list.id = "genres_string";
 		final_genre_list.value = current_values;
 		return final_genre_list;
-	}
+	};
 
 	function append_has_image() {
 		/* construct form element programatically based on weather
@@ -194,13 +194,32 @@ const presubmit = function(e) {
 		final_has_image.id = "has_image";
 		final_has_image.checked = (image_url.length > 0)?true:false;
 		return final_has_image;
-	}
+	};
+
+	function append_availability() {
+		console.log(availability);
+		var week = [];
+		for (let i=0; i<7; i++) {
+			week[i] = availability[i];
+		}
+		console.log(week);
+		var artist_avail = document.createElement("input");
+		artist_avail.type="text";
+		artist_avail.name = "artist_availability";
+		artist_avail.id = "artist_availability";
+		artist_avail.value = week;
+		return artist_avail;
+	};
 	
 	thisform = document.forms[0];
 	// append final genre list;
 	thisform.append(append_genres());
 	// append has-image value
 	thisform.append(append_has_image());
+	// append artist availabilty for artist edits
+	if (availability != {}) {
+		thisform.append(append_availability());
+	}
 }
 
 var availability = {};
