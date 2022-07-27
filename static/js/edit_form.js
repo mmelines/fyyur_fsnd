@@ -28,8 +28,6 @@ const select_genre = function(genre_name, genre_id, add_genre) {
 const init_genre_element = function() {
 	// ensure all genres from entity's db query are selected on page load
 	for (genre_option in document.getElementById('genres').options) {
-		console.log("for:");
-		console.log(genre_option)
 		genre_id = genre_option.index;
 		if (Object.values(current_genres).includes(genre_option)) {
 			select_genre(genres[genre_option], genre_option, true);
@@ -50,13 +48,12 @@ const init_genre_display = function() {
 		{
 			const name = div.innerText;
 			if (entity.genres.includes(name)) {
-				console.log("alter for " + name);
 				div.classList.remove("unsel-gen");
 				div.classList.add("sel-gen");
 				current_genres[name] = id;
-			} else {console.log("neg eval for " + name);}
+			}
 			div.addEventListener('click', function() {toggle_genre(div, id, name)});
-		}
+		};
 	}
 	return current_genres;
 }
@@ -127,26 +124,86 @@ display_seeking_value = function() {
 	};
 };
 
+// ----------------------------------------------------------------
+
+const is_avail = function(target, index) {
+	availability[index] = true;
+	if (target.classList.contains('avail-false')){
+		target.classList.remove('avail-false');
+	};
+	target.classList.add('avail-true');
+}
+
+const not_avail = function(target, index) {
+	availability[index] = false;
+	target.classList.remove('avail-true');
+	target.classList.add('avail-false');
+}
+
+const toggle_availability = function(event) {
+	index = event.target.id.slice(-1, );
+	if (event.target.classList.contains('avail-true')) {
+		not_avail(event.target, index);
+	} else if (event.target.classList.contains('avail-false')) {
+		is_avail(event.target, index);
+	}
+} 
+
+const init_availability = function() {
+	console.log("init availability called");
+	for (let i=0; i<7; i++) {
+		console.log("accessing avail-" + i);
+		var elem = document.getElementById("avail-"+i);
+		elem.addEventListener('click', (event) => {toggle_availability(event)});
+		if (elem.classList.contains('avail-true')) {
+			availability[i] = true;
+		};
+		if (elem.classList.contains('avail-false')) {
+			availability[i] = false;
+		}
+		if ((!elem.classList.contains('avail-true') && 
+			(!elem.classList.contains('avail-false')))) {
+				console.log(elem);
+				is_avail(elem, i);
+			};
+	};
+	console.log(availability);
+}
+
 const presubmit = function(e) {
 	// add string genres_list to form object before form submission
 	// corrects error re: genres selectMultiple intermittently returning only first genre
+	function append_genres() {
+		// process select genres and add them to list
+		current_values = document.getElementById('current-genres').innerText;
+		var final_genre_list = document.createElement("input");
+		final_genre_list.type = "text";
+		final_genre_list.name = "genres_string";
+		final_genre_list.id = "genres_string";
+		final_genre_list.value = current_values;
+		return final_genre_list;
+	}
+
+	function append_has_image() {
+		/* construct form element programatically based on weather
+		image_link has content */
+		image_url = document.getElementById('image_link').value;
+		var final_has_image = document.createElement("input");
+		final_has_image.type = "checkbox";
+		final_has_image.name = "has_image";
+		final_has_image.id = "has_image";
+		final_has_image.checked = (image_url.length > 0)?true:false;
+		return final_has_image;
+	}
+	
 	thisform = document.forms[0];
-	current_values = document.getElementById('current-genres').innerText;
-	var final_genre_list = document.createElement("input");
-	final_genre_list.type = "text";
-	final_genre_list.name = "genres_string";
-	final_genre_list.id = "genres_string";
-	final_genre_list.value = current_values;
-	thisform.append(final_genre_list);
-	image_url = document.getElementById('image_link').value;
-	var final_has_image = document.createElement("input");
-	final_has_image.type = "checkbox";
-	final_has_image.name = "has_image";
-	final_has_image.id = "has_image";
-	final_has_image.checked = (image_url.length > 0)?true:false;
-	thisform.append(final_has_image);
+	// append final genre list;
+	thisform.append(append_genres());
+	// append has-image value
+	thisform.append(append_has_image());
 }
 
+var availability = {};
 window.onpageshow = function() {
 	console.log("load window"); // confirm this script is linked properly
 	entity = false;
@@ -171,6 +228,13 @@ window.onpageshow = function() {
 		current_genres = init_genres();
 		display_state_value();
 		display_seeking_value(is_seeking);
+	}
+	// implement availability event functions 
+	if ("availability" in entity) {
+		console.log("has_availability");
+		init_availability();
+	} else {
+		console.log("doesn't have any availability");
 	}
 }
 
