@@ -196,7 +196,7 @@ class Obj:
       if str(self.facebook_link) != str(form.get('facebook_link')):
         entity.facebook_link = form.get('facebook_link')
         updates += 1
-    if 'genres' in form:
+    if 'genres_string' in form:
       genres_control = self.format_genres(form.get('genres_string'))
       if genres_control == True:
         entity.genres = self.genre_string
@@ -515,10 +515,29 @@ class ArtistObj(Obj):
     - form: response of POST request
     returns status (boolean). True if success and False if failure
     """
-    pprint(obj)
+    print("form:")
+    print(obj)
+    for thing in obj:
+      print(thing)
     status = self.create_edit(obj)
+    self.edit_availability(obj.get('artist_availability'))
     data = self.flash(status)
     return data
+  
+  def edit_availability(self, list):
+    """
+    """
+    print("edit_availability on " + str(list))
+    avail = AvailObj().set(self.id)
+    print(avail)
+    artist_avail = avail.edit(list)
+    print(avail)
+    print(artist_avail)
+  
+  def create_availability(self):
+    """
+    """
+    print("create_availability")
   
   def set_avail(self):
     try:
@@ -850,6 +869,11 @@ class AvailObj():
     yield ("fri", self.fri)
     yield ("sat", self.sat)
   
+  def __repr__(self):
+    msg = "Availability for artist " + str(self.id)
+    msg += " currently " + str(self.week)
+    return msg
+
   def set(self, artist_id):
     """
     set values of object to result of query
@@ -864,6 +888,7 @@ class AvailObj():
     self.fri = artist.fri
     self.sat = artist.sat
     self.week = self.form_week()
+    return self
   
   def edit(self, list):
     """
@@ -874,12 +899,16 @@ class AvailObj():
     """
     updates = 0
     artist = ArtistAvail()
+    print("called edit")
     if len(list) == 7:
+      print("updating list values")
       if (self.sun != list[0]):
+        print("alte")
         self.sun = list[0]
         artist.sun = list[0]
         updates += 1
       if (self.mon != list[1]):
+        print("alte")
         self.mon = list[1]
         artist.mon = list[1]
         updates += 1
@@ -904,6 +933,7 @@ class AvailObj():
         artist.fri = list[6]
         updates += 1
     if updates > 0:
+      self.week = self.form_week()
       return artist
     else:
       return False
@@ -935,7 +965,7 @@ class AvailObj():
   
   def form_week(self):
     return [self.sun, self.mon, self.tue, self.wed, self.thu, self.fri, 
-      self.sat, self.sun]
+      self.sat]
   
 #----------------------------------------------------------------------------#
 # Useful functions.
