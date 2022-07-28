@@ -62,11 +62,13 @@
               weekly<br>
               availability:
             </div>
-            {% for day_int, date in artist.availability.items() %}
-              <div id="avail-{{day_int}}" alt="{{date.name}}" class="avail-day avail-{{date.value|lower}}">
-                {{date.abbr}}
-              </div> 
-            {% endfor %}
+            {% if artist.availability %}
+              {% for day_int, date in artist.availability.items() %}
+                <div id="avail-{{day_int}}" alt="{{date.name}}" class="avail-day avail-{{date.value|lower}}">
+                  {{date.abbr}}
+                </div> 
+              {% endfor %}
+            {% endif %}
           </div>
         </div>
       </div>

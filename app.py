@@ -71,11 +71,13 @@ class Obj:
     self.seeking_description = False
     self.has_image = False
     self.genres = False
-    self.shows = None #TODO
-    self.past_shows = None #TODO
-    self.upcoming_shows = None #TODO
+    self.shows = None
+    self.past_shows = None
+    self.upcoming_shows = None
     self.genre_string = None #TODO
     self.json = None
+    if self.entity_type == "artist":
+      self.availability = None
 
   def copy(self, obj):
     """
@@ -141,7 +143,6 @@ class Obj:
     genre_confirm = [""]*len(self.genres)
     plausable = True # remains true while it is plausable genres remain unchanged
     for form_genre_name in form_genres:
-      print(form_genre_name)
       altered_genres.append(form_genre_name)
       if not form_genre_name in self.genres:
         plausable = False
@@ -156,7 +157,7 @@ class Obj:
       plausable = False
     return not plausable
 
-  def create_edit(self, form):
+  def create_edit(self, form, **kwargs):
     """
     alter sqlalchemy object to update database
     and attempt to commit the update if changes were made
@@ -165,7 +166,10 @@ class Obj:
       entity = Artist.query.get(self.id)
     elif self.entity_type == "venue":
       entity = Venue.query.get(self.id)
-    updates = 0
+    if "previous" in kwargs:
+      updates = kwargs["previous"]
+    else:
+      updates = 0
     # if user has made changes for an update, add them to session entity obj
     # count how many updates have been made
     if 'name' in form:
@@ -339,6 +343,8 @@ class Obj:
     yield ("phone", self.phone)
     if hasattr(self, 'address'):
       yield("address", self.address)
+    if hasattr(self, "availability"):
+      yield("availability", self.availability)
     yield ("image_link", self.image_link)
     yield ("facebook_link", self.facebook_link)
     yield ("genres", self.genres)
@@ -385,9 +391,6 @@ class Obj:
     else:
       msg = "Error. Form not recieved."
     obj["flash_msg"] = msg
-    print("--------------- ** FLASH ** ---------------")
-    print(obj)
-    print("---------------    click    ---------------")
     return obj
 
   @staticmethod
@@ -395,7 +398,6 @@ class Obj:
     """
     format error message from system error and return it as a string
     """
-    print("ADD ERROR MSG: " + str(type(sys_error)))
     print(sys_error)
     string = ""
     for item in sys_error:
@@ -464,6 +466,10 @@ class Obj:
         if not isinstance(self.upcoming_shows, list):
           self.upcoming_shows = []
         self.upcoming_shows.append(new_show)
+      if self.past_shows is None:
+        self.past_shows = {}
+      if self.upcoming_shows is None:
+        self.upcoming_shows = {}
     return self
 
 class ArtistObj(Obj):
@@ -515,29 +521,24 @@ class ArtistObj(Obj):
     - form: response of POST request
     returns status (boolean). True if success and False if failure
     """
-    print("form:")
-    print(obj)
-    for thing in obj:
-      print(thing)
-    status = self.create_edit(obj)
-    self.edit_availability(obj.get('artist_availability'))
+    updates = 0
+    avail_result = self.edit_availability(obj.get('artist_availability'))
+    if avail_result != False:
+      updates += 1
+    status = self.create_edit(obj, previous=updates)
     data = self.flash(status)
     return data
   
   def edit_availability(self, list):
     """
     """
-    print("edit_availability on " + str(list))
     avail = AvailObj().set(self.id)
-    print(avail)
     artist_avail = avail.edit(list)
-    print(avail)
-    print(artist_avail)
+    return artist_avail
   
   def create_availability(self):
     """
     """
-    print("create_availability")
   
   def set_avail(self):
     try:
@@ -561,10 +562,35 @@ class ArtistObj(Obj):
       week[6]["value"] = avail.sat
     except: 
       week = {0: False}
-    artist = self.return_json()
-    artist["availability"] = week
-    return artist
+    self.availability = week
+    return self
 
+  def __repr__(self):
+    msg = "Artist Object: id=" + str(self.id)
+    for item in self:
+      if not item[0] in ["shows", "past_shows", "upcoming_shows"]:
+        msg += "\n   - " + item[0] + "= " + str(item[1])
+    msg += "* SHOWS: "
+    all_shows = []
+    if self.shows is None:
+      msg+= "NONE \n"
+    else:
+      for item in self.shows:
+        msg += str(self.shows[item].show_id) + ", "
+    msg += "* UPCOMING SHOWS:"
+    if self.upcoming_shows is None:
+      msg += "NONE\n"
+    else:
+      for item in self.upcoming_shows:
+        msg += "\n >> "+ str(item.show_id) + ". " + str(item)
+    msg += "* PAST SHOWS:"
+    if self.past_shows is None:
+      msg += "NONE\n"
+    else:
+      for item in self.past_shows:
+        msg += "\n >> " + str(item.show_id) + ". " + str(item)
+    return msg
+    
 class VenueObj(Obj):
   """
   Handles common functions of Venue object formatting
@@ -614,6 +640,32 @@ class VenueObj(Obj):
     data = self.flash(status)
     return data
 
+  def __repr__(self):
+    msg = "Venue Object: id=" + str(self.id)
+    for item in self:
+      if not item[0] in ["shows", "past_shows", "upcoming_shows"]:
+        msg += "\n   - " + item[0] + "= " + str(item[1])
+    msg += "* SHOWS: "
+    all_shows = []
+    if self.shows is None:
+      msg+= "NONE \n"
+    else:
+      for item in self.shows:
+        msg += str(self.shows[item].show_id) + ", "
+    msg += "* UPCOMING SHOWS:"
+    if self.upcoming_shows is None:
+      msg += "NONE\n"
+    else:
+      for item in self.upcoming_shows:
+        msg += "\n >> "+ str(item.show_id) + ". " + str(item)
+    msg += "* PAST SHOWS:"
+    if self.past_shows is None:
+      msg += "NONE\n"
+    else:
+      for item in self.past_shows:
+        msg += "\n >> " + str(item.show_id) + ". " + str(item)
+    return msg
+  
 class ShowObj:
   """
   handles common functions of ShowObj formatting
@@ -685,8 +737,6 @@ class ShowObj:
                 "error": True}
     finally:
       status["verb"] = "listed"
-      print(" -- status in create_show: ")
-      print(status)
       return status
 
   def create_edit(self, form):
@@ -701,53 +751,29 @@ all_day
     show = Show.query.get(self.id)
     updates = 0
     if 'show_id' in form:
-      print("found show_id in form: " + str(form.get('show_id')))
       if str(self.show_id) != str(form.get('show_id')):
-        print(" >> no match; updating self.show_id to " + str(form.get('show_id')))
         show.show_id = form.get('show_id')
         updates += 1
-      else:
-        print(" >> matches; skipping")
     if 'venue_id' in form:
-      print("found venue_id in form: " + str(form.get('venue_id')))
       if str(self.venue_id) != str(form.get('venue_id')):
-        print(" >> no match; updating self.venue_id to " + str(form.get('venue_id')))
         show.venue_id = form.get('venue_id')
         updates += 1
-      else:
-        print(" >> matches; skipping")
     if 'artist_id' in form:
-      print("found artist_id in form: " + str(form.get('artist_id')))
       if str(self.artist_id) != str(form.get('artist_id')):
-        print(" >> no match; updating self.artist_id to " + str(form.get('artist_id')))
         show.artist_id = form.get('artist_id')
         updates += 1
-      else:
-        print(" >> matches; skipping")
     if 'start_time' in form:
-      print("found start_time in form: " + str(form.get('start_time')))
       if str(self.start_time) != str(form.get('start_time')):
-        print(" >> no match; updating self.start_time to " + str(form.get('start_time')))
         show.start_time = form.get('start_time')
         updates += 1
-      else:
-        print(" >> matches; skipping")
     if 'end_time' in form:
-      print("found end_time in form: " + str(form.get('end_time')))
       if str(self.end_time) != str(form.get('end_time')):
-        print(" >> no match; updating self.end_time to " + str(form.get('end_time')))
         show.end_time = form.get('end_time')
         updates += 1
-      else:
-        print(" >> matches; skipping")
     if 'all_day' in form:
-      print("found all_day in form: " + str(form.get('all_day')))
       if str(self.all_day) != str(form.get('all_day')):
-        print(" >> no match; updating self.all_day to " + str(form.get('all_day')))
         show.all_day = form.get('all_day')
         updates += 1
-      else:
-        print(" >> matches; skipping")
     if updates > 0:
       try:
         db.session.commit()
@@ -782,7 +808,6 @@ all_day
     populate ShowObj item from SQLAlchemy object
     """
     def expand_datetime(show_date):
-      print("called expand_datetime " + str(show_date) + " (" + str(type(show_date)) + ")")
       """
       datetime = {"year": show_date.year,
                   "month": show_date.month,
@@ -794,6 +819,8 @@ all_day
 
     if hasattr(obj, 'show_id'):
       self.show_id = obj.show_id
+    if hasattr(obj, 'id'):
+      self.show_id = obj.id
     if hasattr(obj, 'venue_id'):
       self.venue_id = obj.venue_id
     if hasattr(obj, 'artist_id'):
@@ -808,7 +835,6 @@ all_day
       self.all_day = obj.all_day
     json_dict = {}
     for item in self:
-      print(item)
       json_dict[item[0]] = item[1]
     self.json = json_dict
     return self
@@ -874,6 +900,17 @@ class AvailObj():
     msg += " currently " + str(self.week)
     return msg
 
+  @staticmethod
+  def format_list(list):
+    ecmalist = list.split(",")
+    pylist = []
+    for item in ecmalist:
+      if item == "false":
+        pylist.append(False)
+      if item == "true":
+        pylist.append(True)
+    return pylist
+
   def set(self, artist_id):
     """
     set values of object to result of query
@@ -898,17 +935,16 @@ class AvailObj():
       returns sqlalchemy object if any changes were made else False
     """
     updates = 0
-    artist = ArtistAvail()
-    print("called edit")
+    print(self.id)
+    artist = ArtistAvail().query.get(self.id)
+    print(artist)
+    list = self.format_list(list)
     if len(list) == 7:
-      print("updating list values")
       if (self.sun != list[0]):
-        print("alte")
         self.sun = list[0]
         artist.sun = list[0]
         updates += 1
       if (self.mon != list[1]):
-        print("alte")
         self.mon = list[1]
         artist.mon = list[1]
         updates += 1
@@ -933,8 +969,14 @@ class AvailObj():
         artist.fri = list[6]
         updates += 1
     if updates > 0:
-      self.week = self.form_week()
-      return artist
+      try:
+        db.session.add(artist)
+        db.session.commit()
+        self.week = self.form_week()
+        return self
+      except:
+        db.session.rollback()
+        return False
     else:
       return False
   
@@ -945,6 +987,7 @@ class AvailObj():
     returns sqlalchemy object
     """
     artist = ArtistAvail()
+    list = self.format_list(list)
     if len(list) == 7:
       artist.id = artist_id
       self.sun = list[0]
@@ -961,7 +1004,13 @@ class AvailObj():
       artist.fri = list[4]
       self.sat = list[6]
       artist.sat = list[6]
-    return artist
+    try:
+      db.session.add(artist)
+      db.session.commit()
+      return self
+    except:
+      db.session.rollback()
+      return False
   
   def form_week(self):
     return [self.sun, self.mon, self.tue, self.wed, self.thu, self.fri, 
@@ -1085,7 +1134,6 @@ def show_venue(venue_id):
   returns details for individual venue
   """
   venue = VenueObj().get_venue(venue_id).set_shows()
-  print(venue)
   return render_template('pages/show_venue.html', venue=venue)
 
 @app.route('/venues/<venue_id>/verify')
@@ -1099,7 +1147,6 @@ def verify_venue(venue_id):
                     "img": verified_venue.image_link}
   except:
     verification = {"name": False}
-  print("hit " + str(venue_id) + " with a " + str(verification))
   return jsonify(verification)
 
 #  Create Venue
@@ -1167,9 +1214,12 @@ def show_artist(artist_id):
   """
   shows the artist page with the given artist_id
   """
-  artist = ArtistObj().get_artist(artist_id)
+  artist = ArtistObj()
+  artist = artist.get_artist(artist_id)
   artist = artist.set_shows()
-  artist = artist.set_avail()
+  artist.set_avail()
+  print("ARTIST AFTER SET AVAIL")
+  print(artist)
   return render_template('pages/show_artist.html', artist=artist)
 
 @app.route('/artists/<artist_id>/verify')
@@ -1183,7 +1233,6 @@ def verify_artist(artist_id):
                     "img": verified_artist.image_link}
   except:
     verification = {"name": False}
-  print("hit " + str(artist_id) + " with a " + str(verification))
   return jsonify(verification)
 
 #  Update
@@ -1193,8 +1242,10 @@ def edit_artist(artist_id):
   """
   return artist edit form populated with current artist data
   """
-  artist = ArtistObj().get_artist(artist_id)
+  artist = ArtistObj()
+  artist = artist.get_artist(artist_id)
   artist = artist.set_avail()
+  artist = artist.return_json()
   form = ArtistForm()
   genres = json_genres()
   return render_template('forms/edit_artist.html', form=form, artist=artist, 
