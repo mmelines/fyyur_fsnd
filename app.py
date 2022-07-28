@@ -515,6 +515,7 @@ class ArtistObj(Obj):
     - form: response of POST request
     returns status (boolean). True if success and False if failure
     """
+    pprint(obj)
     status = self.create_edit(obj)
     data = self.flash(status)
     return data
@@ -817,6 +818,125 @@ all_day
     msg += "all_day: " + str(self.all_day) + "\n"
     return msg
 
+class AvailObj():
+  """
+  handles common functions for ArtistAvail() functionality
+  """
+
+  def __init__(self):
+    """
+    init instance of artist avail obj
+    """
+    self.id = False
+    self.sun = None
+    self.mon = None
+    self.tue = None
+    self.wed = None
+    self.thu = None
+    self.fri = None
+    self.sat = None
+    self.week = None
+
+  def __iter__(self):
+    """
+    iter property of artist avail obj
+    """
+    yield ("id", self.id)
+    yield ("sun", self.sun)
+    yield ("mon", self.mon)
+    yield ("tue", self.tue)
+    yield ("wed", self.wed)
+    yield ("thu", self.thu)
+    yield ("fri", self.fri)
+    yield ("sat", self.sat)
+  
+  def set(self, artist_id):
+    """
+    set values of object to result of query
+    """
+    artist = ArtistAvail.query.get(artist_id)
+    self.id = artist.id
+    self.sun = artist.sun
+    self.mon = artist.mon
+    self.tue = artist.tue
+    self.wed = artist.wed
+    self.thu = artist.thu
+    self.fri = artist.fri
+    self.sat = artist.sat
+    self.week = self.form_week()
+  
+  def edit(self, list):
+    """
+      compare sqlalchemy object from a list of t/f values to existing
+        object from query
+      updates only the changed values
+      returns sqlalchemy object if any changes were made else False
+    """
+    updates = 0
+    artist = ArtistAvail()
+    if len(list) == 7:
+      if (self.sun != list[0]):
+        self.sun = list[0]
+        artist.sun = list[0]
+        updates += 1
+      if (self.mon != list[1]):
+        self.mon = list[1]
+        artist.mon = list[1]
+        updates += 1
+      if (self.tue != list[2]):
+        self.tue = list[2]
+        artist.tue = list[2]
+        updates += 1
+      if (self.wed != list[3]):
+        self.wed = list[3]
+        artist.wed = list[3]
+        updates += 1
+      if (self.thu != list[4]):
+        self.thu = list[4]
+        artist.thu = list[4]
+        updates += 1
+      if (self.fri != list[5]):
+        self.fri = list[5]
+        artist.thu = list[5]
+        updates += 1
+      if (self.sat != list[6]):
+        self.sat = list[6]
+        artist.fri = list[6]
+        updates += 1
+    if updates > 0:
+      return artist
+    else:
+      return False
+  
+  def copy(self, artist_id, list):
+    """
+    create sqlalchemy object from a list of t/f values
+    updates self
+    returns sqlalchemy object
+    """
+    artist = ArtistAvail()
+    if len(list) == 7:
+      artist.id = artist_id
+      self.sun = list[0]
+      artist.sun = list[0]
+      self.mon = list[1]
+      artist.mon = list[1]
+      self.tue = list[2]
+      artist.tue = list[2]
+      self.wed = list[3]
+      artist.wed = list[3]
+      self.thu = list[4]
+      artist.thu = list[4]
+      self.fri = list[5]
+      artist.fri = list[4]
+      self.sat = list[6]
+      artist.sat = list[6]
+    return artist
+  
+  def form_week(self):
+    return [self.sun, self.mon, self.tue, self.wed, self.thu, self.fri, 
+      self.sat, self.sun]
+  
 #----------------------------------------------------------------------------#
 # Useful functions.
 #----------------------------------------------------------------------------#
