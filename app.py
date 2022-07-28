@@ -320,8 +320,15 @@ class Obj:
       # if a common error occurs, print error and set code to 409
       db.session.rollback()
       status_code = 409
-      name = ""
+      if (request.form.get('name')):
+        name = request.form.get('name')
+      else:
+        name = "Artist"
       error = err
+      status = {"status": status_code,
+                "error": err,
+                "name": name,
+                "id": None}
       print(err)
     except:
       # if an error occurs outside of base classes, catch it anyways
@@ -508,6 +515,10 @@ class ArtistObj(Obj):
     returns status (boolean). True if success and False if failure
     """
     status = self.create_insert("artist", form)
+    print(status)
+    if (status["error"] == False):
+      self.id = status["id"]
+      new_avail = self.create_availability(form.get('artist_availability'))
     data = self.flash(status)
     return data
 
@@ -531,14 +542,18 @@ class ArtistObj(Obj):
   
   def edit_availability(self, list):
     """
+    creates and executes artist_avail edit on artist edit
     """
     avail = AvailObj().set(self.id)
     artist_avail = avail.edit(list)
     return artist_avail
   
-  def create_availability(self):
+  def create_availability(self, list):
     """
+    creates and executes artist_avail insert on artist insert
     """
+    artist_avail = AvailObj().copy(self.id, list)
+    return artist_avail
   
   def set_avail(self):
     try:
@@ -916,15 +931,16 @@ class AvailObj():
     set values of object to result of query
     """
     artist = ArtistAvail.query.get(artist_id)
-    self.id = artist.id
-    self.sun = artist.sun
-    self.mon = artist.mon
-    self.tue = artist.tue
-    self.wed = artist.wed
-    self.thu = artist.thu
-    self.fri = artist.fri
-    self.sat = artist.sat
-    self.week = self.form_week()
+    self.id = artist_id
+    if (artist):
+      self.sun = artist.sun
+      self.mon = artist.mon
+      self.tue = artist.tue
+      self.wed = artist.wed
+      self.thu = artist.thu
+      self.fri = artist.fri
+      self.sat = artist.sat
+      self.week = self.form_week()
     return self
   
   def edit(self, list):
